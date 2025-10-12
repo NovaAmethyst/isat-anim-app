@@ -24,7 +24,7 @@ class AnimationEditorApp(tk.Tk):
         self.tab_notebook = ttk.Notebook(self)
         self.tab_notebook.pack(fill="both", expand=True)
 
-        self.actor_frame = tk.Frame(self.tab_notebook, highlightbackground="black", highlightthickness=1)
+        self.actor_frame = tk.Frame(self.tab_notebook)
         self.tab_notebook.add(self.actor_frame, text="Actors")
         self.init_actor_tab()
     
@@ -48,7 +48,7 @@ class AnimationEditorApp(tk.Tk):
             select_func=self.select_actor,
             double_func=self.rename_actor,
         )
-        self.actor_listbox.pack(side="left", fill="y", expand=True, padx=10, pady=10)
+        self.actor_listbox.pack(side="left", fill="y", padx=10, pady=10)
     
     def unsaved_actor(self, idx: int):
         self.actors_save_status[idx] = (False, self.actors_save_status[idx][1])
