@@ -49,6 +49,18 @@ class AnimationEditorApp(tk.Tk):
             double_func=self.rename_actor,
         )
         self.actor_listbox.pack(side="left", fill="y", padx=10, pady=10)
+
+        # Right: Actor details, actions and action components
+        actor_detail_frame = tk.Frame(self.actor_frame)
+        actor_detail_frame.pack(side="right", fill="both", expand=True)
+
+        # Top right: name display and save buttons
+        actor_name_frame = tk.Frame(actor_detail_frame)
+        actor_name_frame.pack(side="top", fill="x")
+        self.actor_name_label = tk.Label(actor_name_frame, text="")
+        self.actor_name_label.pack(side="left", fill="x")
+        tk.Button(actor_name_frame, text="Save As", command=self.save_actor_as).pack(side="right", padx=2)
+        tk.Button(actor_name_frame, text="Save", command=self.save_actor).pack(side="right", padx=2)
     
     def unsaved_actor(self, idx: int):
         self.actors_save_status[idx] = (False, self.actors_save_status[idx][1])
@@ -59,12 +71,16 @@ class AnimationEditorApp(tk.Tk):
     def clean_actor(self):
         self.actor_listbox.select_clear()
         self.curr_actor_idx = None
+
+        self.actor_name_label["text"] = ""
     
     def set_actor(self, idx: int):
         self.clean_actor()
 
         self.curr_actor_idx = idx
         self.actor_listbox.select(idx)
+
+        self.actor_name_label["text"] = self.actors[idx].name
     
     def _add_or_replace_actor(self, actor: Actor, path: str | None = None, idx: int | None = None):
         save_status = (path is not None, path)
@@ -99,7 +115,7 @@ class AnimationEditorApp(tk.Tk):
         
         actor = Actor.from_dict(data)
         # TODO add checks and behaviour for opening actor with pre-existing name in register
-        self._add_or_replace_actor(actor)
+        self._add_or_replace_actor(actor, path=path)
     
     def delete_actor(self):
         if self.curr_actor_idx is None:
@@ -137,6 +153,45 @@ class AnimationEditorApp(tk.Tk):
         actor_idx = self.curr_actor_idx
         old_name = self.actors[actor_idx].name
         create_renaming_entry(listbox, actor_idx, old_name, save_actor_name)
+
+    def save_actor_as(self):
+        if self.curr_actor_idx is None:
+            return
+
+        idx = self.curr_actor_idx
+        actor = self.actors[idx]
+        file_name = actor.name.replace(' ', '_').lower()
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON Files", "*.json")],
+            initialfile=file_name,
+        )
+        if not path:
+            return
+
+        self.actors_save_status[idx] = (self.actors_save_status[idx][0], path)
+        self.save_actor()
+
+    def save_actor(self):
+        if self.curr_actor_idx is None:
+            return
+
+        idx = self.curr_actor_idx
+        path = self.actors_save_status[idx][1]
+        if path is None:
+            self.save_actor_as()
+            return
+
+        actor = self.actors[idx]
+        actor_dict = actor.to_dict()
+
+        with open(path, "w") as f:
+            json.dump(actor_dict, f, indent=2)
+
+        self.actors_save_status[idx] = (True, path)
+        self.actor_listbox.set(self.actors)
+        self.set_actor(idx)
 
     def window_close(self):
         unsaved_actors = False
