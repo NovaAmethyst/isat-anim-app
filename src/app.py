@@ -500,6 +500,37 @@ class AnimationEditorApp(tk.Tk):
             command=self.update_scene,
         ).pack(side="left", padx=2)
 
+        # Scene appearance and actors notebook
+        self.scene_notebook = ttk.Notebook(scene_detail_frame)
+
+        # Scene appearance
+        appearance_frame = tk.Frame(self.scene_notebook)
+        self.scene_notebook.add(appearance_frame, text="Appearance")
+
+        # Background
+        background_frame = tk.Frame(appearance_frame)
+        background_frame.pack(side="top", fill="x")
+        tk.Button(background_frame, text="Set Background", command=self.set_background).pack(side="top", pady=2)
+        self.background_image = ImageFrame(background_frame, 200)
+        self.background_image.pack(side="top", fill="both")
+
+        # Camera details
+        camera_frame = tk.Frame(appearance_frame)
+        camera_frame.pack(side="bottom", fill="both", expand=True, pady=5)
+
+        # Global camera data
+        global_cam_frame = tk.Frame(camera_frame)
+        global_cam_frame.pack(side="left", fill="both", expand=True)
+        self.cam_width_entry = IntEntryFrame(global_cam_frame, "Camera Width")
+        self.cam_width_entry.pack(side="top", fill="x", pady=2)
+        self.cam_height_entry = IntEntryFrame(global_cam_frame, "Camera Height")
+        self.cam_height_entry.pack(side="top", fill="x", pady=2)
+        self.cam_start_x_entry = IntEntryFrame(global_cam_frame, "Camera Start X")
+        self.cam_start_x_entry.pack(side="top", fill="x", pady=2)
+        self.cam_start_y_entry = IntEntryFrame(global_cam_frame, "Camera Start Y")
+        self.cam_start_y_entry.pack(side="top", fill="x", pady=2)
+        tk.Button(global_cam_frame, text="Update Camera", command=self.update_cam_settings).pack(side="bottom")
+
     def unsaved_scene(self, idx: int, set_all: bool = True):
         self.scenes_save_status[idx] = (False, self.scenes_save_status[idx][1])
         if set_all:
@@ -518,6 +549,7 @@ class AnimationEditorApp(tk.Tk):
     def clean_scene(self):
         self.curr_scene_idx = None
         self.scene_listbox.select_clear()
+        self.scene_notebook.pack_forget()
         self.scene_setting_frame.pack_forget()
         self.scene_name_label["text"] = ""
 
@@ -527,10 +559,18 @@ class AnimationEditorApp(tk.Tk):
         self.curr_scene_idx = idx
         self.scene_listbox.select(idx)
         self.scene_setting_frame.pack(side="top", fill="x")
+        self.scene_notebook.pack(side="top", fill="both", expand=True)
 
         scene = self.scenes[idx]
         self.scene_len_entry.set(scene.duration_sec)
         self.scene_name_label["text"] = scene.name
+        self.background_image.set(scene.background)
+
+        cam = scene.camera
+        self.cam_width_entry.set(cam.width)
+        self.cam_height_entry.set(cam.height)
+        self.cam_start_x_entry.set(cam.start_x)
+        self.cam_start_y_entry.set(cam.start_y)
 
     def add_scene(self):
         scene_names = [scene.name for scene in self.scenes]
@@ -606,7 +646,56 @@ class AnimationEditorApp(tk.Tk):
         if scene_len is None:
             return
         scene.duration_sec = scene_len
-        self.unsaved_scene(scene_idx, False)
+        self.unsaved_scene(scene_idx)
+
+    def set_background(self):
+        if self.curr_scene_idx is None:
+            return
+
+        idx = self.curr_scene_idx
+        scene = self.scenes[idx]
+
+        path = filedialog.askopenfilename(
+            filetypes=[
+                ("PNG Images", "*.png"),
+                ("JPEG Images", "*.jpg"),
+                ("GIF Images", "*.gif"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if path:
+            try:
+                img = Image.open(path).convert("RGBA")
+            except:
+                messagebox.showwarning(
+                    "Image non openable",
+                    f"Could not open the image at {path}.",
+                )
+                return
+
+        scene.background = img
+        self.background_image.set(img)
+        self.unsaved_scene(idx)
+
+    def update_cam_settings(self):
+        if self.curr_scene_idx is None:
+            return
+
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        cam = scene.camera
+
+        width = self.cam_width_entry.get()
+        height = self.cam_height_entry.get()
+        start_x = self.cam_start_x_entry.get()
+        start_y = self.cam_start_y_entry.get()
+
+        cam.width = width
+        cam.height = height
+        cam.start_x = start_x
+        cam.start_y = start_y
+
+        self.unsaved_scene(scene_idx)
 
     def save_scene_as(self):
         if self.curr_scene_idx is None:
