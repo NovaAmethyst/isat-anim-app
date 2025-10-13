@@ -1,6 +1,9 @@
 import tkinter as tk
-from tkinter import messagebox
+from PIL import Image
+from tkinter import filedialog, messagebox
 from typing import Optional
+
+from src.widgets.image_frame import ImageFrame
 
 
 class BaseEntryFrame(tk.Frame):
@@ -45,3 +48,48 @@ class FloatEntryFrame(BaseEntryFrame):
         )
 
         self.error_message = "should be a valid real number"
+
+
+class ImageFileEntry(tk.Frame):
+    def __init__(self, parent, label, default: Image | None = None):
+        super().__init__(parent)
+        label_frame = tk.Frame(self)
+        self.label = tk.Label(label_frame, text=label, anchor="w")
+        self.img_frame = ImageFrame(self, 32)
+        self.img = default
+
+        if self.img is None:
+            self.img_frame.set(self.img)
+
+        label_frame.pack(side="top", fill="x")
+        self.label.pack(side="left", fill="x")
+        tk.Button(label_frame, text="...", command=self.set_file).pack(side="right")
+        self.img_frame.pack(side="bottom", padx=4)
+
+    def get(self):
+        if self.img is None:
+            messagebox.showwarning(
+                "Erroneous variable",
+                f"The value {self.label['text']} should be associated with an image.",
+            )
+        return self.img
+
+    def set_file(self):
+        path = filedialog.askopenfilename(
+            filetypes=[
+                ("PNG Images", "*.png"),
+                ("JPEG Images", "*.jpg"),
+                ("GIF Images", "*.gif"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if path:
+            try:
+                img = Image.open(path).convert("RGBA")
+                self.img = img
+                self.img_frame.set(self.img)
+            except:
+                messagebox.showwarning(
+                    "Image non openable",
+                    f"Could not open the image at {path}.",
+                )
