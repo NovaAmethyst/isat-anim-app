@@ -16,10 +16,14 @@ class AnimationEditorApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.window_close)
 
         self.actors: list[Actor] = []
-        self.actors_save_status: list[tuple[bool, str]] = []
+        self.actors_save_status: list[tuple[bool, str | None]] = []
         self.curr_actor_idx: Optional[int] = None
         self.curr_action_idx: Optional[int] = None
         self.curr_comp_idx: Optional[int] = None
+
+        self.scenes: list[Scene] = []
+        self.scenes_save_status: list[tuple[bool, str | None]] = []
+        self.curr_scene_idx: Optional[int] = None
 
         self.create_tabs()
     
@@ -30,6 +34,10 @@ class AnimationEditorApp(tk.Tk):
         self.actor_frame = tk.Frame(self.tab_notebook)
         self.tab_notebook.add(self.actor_frame, text="Actors")
         self.init_actor_tab()
+
+        self.scene_frame = tk.Frame(self.tab_notebook)
+        self.tab_notebook.add(self.scene_frame, text="Scenes")
+        self.init_scene_tab()
     
     def init_actor_tab(self):
         # Left: actor list
@@ -174,7 +182,7 @@ class AnimationEditorApp(tk.Tk):
         actor = Actor(name=f"Actor {i}")
         self._add_or_replace_actor(actor)
     
-    def open_actor(self):  # TODO test the function once whole actors interface and saving is done
+    def open_actor(self):
         path = filedialog.askopenfilename(
             filetypes=[("JSON Files", "*.json")],
         )
@@ -195,7 +203,7 @@ class AnimationEditorApp(tk.Tk):
         if not self.actors_save_status[idx][0]:
             answer = messagebox.askokcancel(
                 title="Confirmation",
-                message=f"The actor {self.actors[idx].name} wasn't saved. Delete anyway?",
+                message=f"The actor '{self.actors[idx].name}' wasn't saved. Delete anyway?",
                 icon=messagebox.WARNING,
             )
             if not answer:
@@ -443,20 +451,224 @@ class AnimationEditorApp(tk.Tk):
         self.set_actor_all()
         self.set_actor(idx)
 
+    def init_scene_tab(self):
+        # Left: scene list
+        def display_scene(scene: Scene):
+            idx = self.scenes.index(scene)
+            name = scene.name
+            if not self.scenes_save_status[idx][0]:
+                name = "*" + name
+            return name
+
+        self.scene_listbox = EditableListFrame(
+            parent=self.scene_frame,
+            display_func=display_scene,
+            buttons_info=[
+                {"text": "Add Scene", "command": self.add_scene},
+                {"text": "Open Scene", "command": self.open_scene},
+                {"text": "Delete Scene", "command": self.delete_scene},
+            ],
+            select_func=self.select_scene,
+            double_func=self.rename_scene,
+        )
+        self.scene_listbox.pack(side="left", fill="y", padx=10, pady=10)
+
+        # Right: scene details, camera definition, actors definition
+        scene_detail_frame = tk.Frame(self.scene_frame)
+        scene_detail_frame.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+        # Top right: name display, save buttons and scene length setting
+        scene_name_frame = tk.Frame(scene_detail_frame)
+        scene_name_frame.pack(side="top", fill="x")
+
+        name_save_frame = tk.Frame(scene_name_frame)
+        name_save_frame.pack(side="top", fill="x")
+        self.scene_name_label = tk.Label(name_save_frame, text="")
+        self.scene_name_label.pack(side="left", fill="x")
+        tk.Button(name_save_frame, text="Save As", command=self.save_scene_as).pack(side="right", padx=2)
+        tk.Button(name_save_frame, text="Save", command=self.save_scene).pack(side="right", padx=2)
+
+        self.scene_setting_frame = tk.Frame(scene_name_frame)
+        self.scene_len_entry = FloatEntryFrame(
+            parent=self.scene_setting_frame,
+            label="Scene length (s)",
+        )
+        self.scene_len_entry.pack(side="left")
+        tk.Button(
+            self.scene_setting_frame,
+            text="Update Scene Settings",
+            command=self.update_scene,
+        ).pack(side="left", padx=2)
+
+    def unsaved_scene(self, idx: int, set_all: bool = True):
+        self.scenes_save_status[idx] = (False, self.scenes_save_status[idx][1])
+        if set_all:
+            self.set_all_scenes()
+
+    def set_all_scenes(self):
+        scene_idx = self.curr_scene_idx
+
+        self.clean_scene()
+        self.scene_listbox.clean()
+
+        self.scene_listbox.set(self.scenes)
+        if scene_idx is not None:
+            self.set_scene(scene_idx)
+
+    def clean_scene(self):
+        self.curr_scene_idx = None
+        self.scene_listbox.select_clear()
+        self.scene_setting_frame.pack_forget()
+        self.scene_name_label["text"] = ""
+
+    def set_scene(self, idx: int):
+        self.clean_scene()
+
+        self.curr_scene_idx = idx
+        self.scene_listbox.select(idx)
+        self.scene_setting_frame.pack(side="top", fill="x")
+
+        scene = self.scenes[idx]
+        self.scene_len_entry.set(scene.duration_sec)
+        self.scene_name_label["text"] = scene.name
+
+    def add_scene(self):
+        scene_names = [scene.name for scene in self.scenes]
+        i = 1
+        while f"Scene {i}" in scene_names:
+            i += 1
+        scene = Scene(name=f"Scene {i}")
+        self.scenes.append(scene)
+        self.scenes_save_status.append((False, None))
+
+        self.set_all_scenes()
+        self.set_scene(len(self.scenes) - 1)
+
+    def open_scene(self):
+        path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
+        if not path:
+            return
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        scene = Scene.from_dict(data)
+
+        self.scenes.append(scene)
+        self.scenes_save_status.append((True, path))
+
+        self.set_all_scenes()
+        self.set_scene(len(self.scenes) - 1)
+
+    def delete_scene(self):
+        if self.curr_scene_idx is None:
+            return
+        idx = self.curr_scene_idx
+
+        if not self.scenes_save_status[idx][0]:
+            answer = messagebox.askokcancel(
+                title="Confirmation",
+                message=f"The scene '{self.scenes[idx].name}' wasn't saved. Delete anyway?",
+                icon=messagebox.WARNING,
+            )
+            if not answer:
+                return
+
+        self.scenes.pop(idx)
+        self.scenes_save_status.pop(idx)
+        self.clean_scene()
+        self.set_all_scenes()
+
+    def select_scene(self, event, listbox):
+        idx = listbox.curselection()
+        if idx and idx[0] != self.curr_scene_idx:
+            self.set_scene(idx[0])
+
+    def rename_scene(self, event, listbox):
+        if self.curr_scene_idx is None:
+            return
+
+        def save_scene_name(idx: int, name: str) -> None:
+            self.scenes[idx].name = name
+            self.unsaved_scene(idx)
+            self.set_scene(idx)
+
+        scene_idx = self.curr_scene_idx
+        old_name = self.scenes[scene_idx].name
+        create_renaming_entry(listbox, scene_idx, old_name, save_scene_name)
+
+    def update_scene(self):
+        if self.curr_scene_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+
+        scene_len = self.scene_len_entry.get()
+        if scene_len is None:
+            return
+        scene.duration_sec = scene_len
+        self.unsaved_scene(scene_idx, False)
+
+    def save_scene_as(self):
+        if self.curr_scene_idx is None:
+            return
+
+        idx = self.curr_scene_idx
+        scene = self.scenes[idx]
+        file_name = scene.name.replace(' ', '_').lower()
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON Files", "*.json")],
+            initialfile=file_name,
+        )
+        if not path:
+            return
+        self.scenes_save_status[idx] = (self.scenes_save_status[idx][0], path)
+        self.save_scene()
+
+    def save_scene(self):
+        if self.curr_scene_idx is None:
+            return
+
+        idx = self.curr_scene_idx
+        path = self.scenes_save_status[idx][1]
+        if path is None:
+            self.save_scene_as()
+            return
+
+        scene = self.scenes[idx]
+        scene_dict = scene.to_dict()
+
+        with open(path, "w") as f:
+            json.dump(scene_dict, f, indent=2)
+
+        self.scenes_save_status[idx] = (True, path)
+        self.set_all_scenes()
+
     def window_close(self):
         unsaved_actors = False
         for status in self.actors_save_status:
             if not status[0]:
                 unsaved_actors = True
                 break
-        
-        if not unsaved_actors:
+
+        unsaved_scenes = False
+        for status in self.scenes_save_status:
+            if not status[0]:
+                unsaved_scenes = True
+                break
+
+        if not unsaved_actors and not unsaved_scenes:
             self.quit()
             return
         
         unsaved_kind = ""
         if unsaved_actors:
             unsaved_kind += "actors"
+            if unsaved_scenes:
+                unsaved_kind += " and "
+        if unsaved_scenes:
+            unsaved_kind += "scenes"
         
         message = f"There are unsaved {unsaved_kind}. Close the window anyway?"
 

@@ -27,6 +27,9 @@ class BaseEntryFrame(tk.Frame):
             )
             return None
 
+    def set(self, value):
+        self.var.set(value)
+
 
 class IntEntryFrame(BaseEntryFrame):
     def __init__(self, parent, label, default: Optional[int] = None):
