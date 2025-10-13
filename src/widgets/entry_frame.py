@@ -9,7 +9,7 @@ from src.widgets.image_frame import ImageFrame
 class BaseEntryFrame(tk.Frame):
     def __init__(self, parent, label, var_widget):
         super().__init__(parent)
-        self.label = tk.Label(self, text=label, anchor="w")
+        self.label = tk.Label(self, text=label + ':', anchor="w")
         self.var = var_widget
         self.entry = tk.Entry(self, textvariable=self.var)
 
@@ -23,7 +23,7 @@ class BaseEntryFrame(tk.Frame):
         except tk.TclError:
             messagebox.showwarning(
                 "Erroneous variable",
-                f"The value '{self.label['text']}' {self.error_message}."
+                f"The value '{self.label['text'][:-1]}' {self.error_message}."
             )
             return None
 
@@ -51,26 +51,24 @@ class FloatEntryFrame(BaseEntryFrame):
 
 
 class ImageFileEntry(tk.Frame):
-    def __init__(self, parent, label, default: Image | None = None):
+    def __init__(self, parent, label, default: Image.Image | None = None):
         super().__init__(parent)
-        label_frame = tk.Frame(self)
-        self.label = tk.Label(label_frame, text=label, anchor="w")
-        self.img_frame = ImageFrame(self, 32)
+        self.label = tk.Label(self, text=label + ":", anchor="w")
+        self.img_frame = ImageFrame(self, 64)
         self.img = default
 
-        if self.img is None:
+        if self.img is not None:
             self.img_frame.set(self.img)
 
-        label_frame.pack(side="top", fill="x")
-        self.label.pack(side="left", fill="x")
-        tk.Button(label_frame, text="...", command=self.set_file).pack(side="right")
-        self.img_frame.pack(side="bottom", padx=4)
+        self.label.pack(side="left")
+        self.img_frame.pack(side="left", padx=2)
+        tk.Button(self, text="...", command=self.set_file).pack(side="left", padx=2)
 
     def get(self):
         if self.img is None:
             messagebox.showwarning(
                 "Erroneous variable",
-                f"The value {self.label['text']} should be associated with an image.",
+                f"The value {self.label['text'][:-1]} should be associated with an image.",
             )
         return self.img
 

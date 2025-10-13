@@ -50,7 +50,7 @@ class EditableTreeFrame(tk.Frame):
 
     def clean(self):
         self.select_clear()
-        self.tree.delete(*self.tree.get_children())
+        self.treeview.delete(*self.treeview.get_children())
         self.img_storage = []
 
     def set(self, obj_list):

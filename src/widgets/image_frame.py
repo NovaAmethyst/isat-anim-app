@@ -8,13 +8,9 @@ class ImageFrame(tk.Frame):
         self.image_label = tk.Label(
             self,
             text="No image selected",
-            anchor="center",
-            width=side_length,
-            height=side_length,
-            highlightbackground="black",
-            highlightthickness=1,
+            anchor="w",
         )
-        self.image_label.pack(fill="both", expand=True)
+        self.image_label.pack()
         self.current_image = None
         self.side_length = side_length
 
@@ -27,5 +23,5 @@ class ImageFrame(tk.Frame):
         self.image_label.config(image=self.current_image, text="")
 
     def clean(self):
-        self.image_label.config(image="", text="Noimage selected")
+        self.image_label.config(image="", text="No image selected")
         self.current_image = None

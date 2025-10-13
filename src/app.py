@@ -1,5 +1,6 @@
 import json
 import tkinter as tk
+from PIL import ImageTk
 from tkinter import filedialog, messagebox, ttk
 from typing import Optional
 
@@ -18,6 +19,7 @@ class AnimationEditorApp(tk.Tk):
         self.actors_save_status: list[tuple[bool, str]] = []
         self.curr_actor_idx: Optional[int] = None
         self.curr_action_idx: Optional[int] = None
+        self.curr_comp_idx: Optional[int] = None
 
         self.create_tabs()
     
@@ -80,15 +82,46 @@ class AnimationEditorApp(tk.Tk):
         )
         self.action_listbox.pack(side="top", fill="both", expand=True)
 
+        # Bottom right: action component list
+        def display_component(comp: ActionComponent) -> list[ImageTk.PhotoImage | str]:
+            return [
+                ImageTk.PhotoImage(comp.sprite.resize((16, 16))),
+                str(comp.duration_sec),
+                f"({comp.x_offset},{comp.y_offset})",
+            ]
+
+        self.comp_listbox = EditableTreeFrame(
+            parent=actor_detail_frame,
+            columns=["Sprite", "Duration (s)", "(x, y)"],
+            display_func=display_component,
+            buttons_info=[
+                {
+                    "text": "Add Component",
+                    "command": lambda: self.add_or_edit_component(new=True)
+                },
+                {
+                    "text": "Edit Component",
+                    "command": lambda: self.add_or_edit_component(new=False)
+                },
+                {"text": "Delete Component", "command": self.delete_component},
+            ],
+            btns_per_row=4,
+            select_func=self.select_component,
+        )
+        self.comp_listbox.pack(side="top", fill="both", expand=True)
+
     def set_actor_all(self):
         actor_idx = self.curr_actor_idx
         action_idx = self.curr_action_idx
+        comp_idx = self.curr_comp_idx
 
         self.clean_actor()
         self.actor_listbox.clean()
 
         self.actor_listbox.set(self.actors)
-        if action_idx is not None:
+        if comp_idx is not None:
+            self.set_component(comp_idx)
+        elif action_idx is not None:
             self.set_action(action_idx)
         elif actor_idx is not None:
             self.set_actor(actor_idx)
@@ -106,6 +139,7 @@ class AnimationEditorApp(tk.Tk):
         self.curr_actor_idx = None
 
         self.actor_name_label["text"] = ""
+        self.action_listbox.clean()
 
     def set_actor(self, idx: int):
         self.clean_actor()
@@ -191,8 +225,11 @@ class AnimationEditorApp(tk.Tk):
         create_renaming_entry(listbox, actor_idx, old_name, save_actor_name)
 
     def clean_action(self):
+        self.clean_component()
         self.action_listbox.select_clear()
         self.curr_action_idx = None
+
+        self.comp_listbox.clean()
 
     def set_action(self, idx):
         if self.curr_actor_idx is None:
@@ -203,6 +240,10 @@ class AnimationEditorApp(tk.Tk):
         self.set_actor(actor_idx)
         self.curr_action_idx = idx
         self.action_listbox.select(idx)
+
+        actor = self.actors[actor_idx]
+        action = actor.actions[idx]
+        self.comp_listbox.set(action.components)
 
     def add_action(self):
         if self.curr_actor_idx is None:
@@ -256,6 +297,112 @@ class AnimationEditorApp(tk.Tk):
         action_idx = self.curr_action_idx
         old_name = actor.actions[action_idx].name
         create_renaming_entry(listbox, actor_idx, old_name, save_action_name)
+
+    def clean_component(self):
+        self.comp_listbox.select_clear()
+        self.curr_comp_idx = None
+
+    def set_component(self, idx):
+        if self.curr_actor_idx is None or self.curr_action_idx is None:
+            return
+        action_idx = self.curr_action_idx
+
+        self.clean_action()
+        self.set_action(action_idx)
+        self.curr_comp_idx = idx
+        self.comp_listbox.select(idx)
+
+    def add_or_edit_component(self, new):
+        print(self.curr_actor_idx, self.curr_action_idx, self.curr_comp_idx)
+        if self.curr_actor_idx is None or self.curr_action_idx is None:
+            return
+
+        actor_idx = self.curr_actor_idx
+        actor = self.actors[actor_idx]
+        action_idx = self.curr_action_idx
+        action = actor.actions[action_idx]
+
+        comp = None
+        idx = len(action.components)
+        if not new:
+            if self.curr_comp_idx is None:
+                return
+            idx = self.curr_comp_idx
+            comp = action.components[idx]
+
+        window_type = "Add" if new else "Edit"
+
+        popup = tk.Toplevel(self)
+        popup.title(f"{window_type} Action Component")
+
+        sprite_entry = ImageFileEntry(
+            popup, "Sprite", default = comp.sprite if comp else None,
+        )
+        sprite_entry.pack(side="top", fill="x", pady=1)
+
+        duration_entry = FloatEntryFrame(
+            popup, "Duration (s)", comp.duration_sec if comp else 1.0,
+        )
+        duration_entry.pack(side="top", fill="x", pady=1)
+
+        x_off_entry = IntEntryFrame(
+            popup, "X Offset", comp.x_offset if comp else 0,
+        )
+        x_off_entry.pack(side="top", fill="x", pady=1)
+
+        y_off_entry = IntEntryFrame(
+            popup, "Y Offset", comp.y_offset if comp else 0,
+        )
+        y_off_entry.pack(side="top", fill="x", pady=1)
+
+        def save_component():
+            sprite = sprite_entry.get()
+            duration = duration_entry.get()
+            x_off = x_off_entry.get()
+            y_off = y_off_entry.get()
+
+            if sprite is None or duration is None or x_off is None or y_off is None:
+                return
+
+            new_comp = ActionComponent(
+                sprite=sprite,
+                duration_sec=duration,
+                x_offset=x_off,
+                y_offset=y_off,
+            )
+            if new:
+                action.components.append(new_comp)
+            else:
+                action.components[idx] = new_comp
+
+            popup.destroy()
+            self.unsaved_actor(actor_idx)
+            self.set_component(idx)
+
+        tk.Button(popup, text=window_type, command=save_component).pack(pady=10)
+
+    def delete_component(self):
+        if self.curr_actor_idx is None or self.curr_action_idx is None or self.curr_comp_idx is None:
+            return
+
+        actor_idx = self.curr_actor_idx
+        actor = self.actors[actor_idx]
+        action_idx = self.curr_action_idx
+        action = actor.actions[action_idx]
+        action.components.pop(self.curr_comp_idx)
+
+        self.clean_component()
+        self.unsaved_actor(actor_idx)
+        self.set_action(action_idx)
+
+    def select_component(self, event, treeview):
+        if self.curr_actor_idx is None or self.curr_action_idx is None:
+            return
+
+        if treeview.selection():
+            idx = int(treeview.selection()[0])
+            if idx != self.curr_comp_idx:
+                self.set_component(idx)
 
     def save_actor_as(self):
         if self.curr_actor_idx is None:
