@@ -94,3 +94,36 @@ class ImageFileEntry(tk.Frame):
                     "Image non openable",
                     f"Could not open the image at {path}.",
                 )
+
+
+class DropdownEntry(tk.Frame):
+    def __init__(
+        self,
+        parent,
+        label: str,
+        options: list[str],
+        default: str | None = None
+    ):
+        super().__init__(parent)
+        self.label = tk.Label(self, text=label + ':', anchor="w")
+        self.var = tk.StringVar(value=default if default is not None else "Please select an option")
+        self.dropdown = tk.OptionMenu(
+            self,
+            self.var,
+            default if default is not None else "Please select an option",
+            *options,
+        )
+        self.options = options
+
+        self.label.pack(side="top", fill="x")
+        self.dropdown.pack(side="bottom", fill="x", padx=4)
+
+    def get(self) -> str | None:
+        value = self.var.get()
+        if value in self.options:
+            return value
+        messagebox.showinfo(
+            "Unset option",
+            f"No choice was made for the value '{self.label['text'][:-1]}'."
+        )
+        return None

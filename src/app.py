@@ -24,6 +24,7 @@ class AnimationEditorApp(tk.Tk):
         self.scenes: list[Scene] = []
         self.scenes_save_status: list[tuple[bool, str | None]] = []
         self.curr_scene_idx: Optional[int] = None
+        self.curr_sa_idx: Optional[int] = None
 
         self.create_tabs()
     
@@ -531,6 +532,30 @@ class AnimationEditorApp(tk.Tk):
         self.cam_start_y_entry.pack(side="top", fill="x", pady=2)
         tk.Button(global_cam_frame, text="Update Camera", command=self.update_cam_settings).pack(side="bottom")
 
+        # Scene actors and actions
+        scene_actor_frame = tk.Frame(self.scene_notebook)
+        self.scene_notebook.add(scene_actor_frame, text="Actors")
+
+        # Scene actor list
+        def display_scene_actor(sa: SceneActor) -> list[None| str]:
+            return [None, sa.actor.name, f"({sa.start_x},{sa.start_y})"]
+
+        self.sa_listbox = EditableTreeFrame(
+            parent=scene_actor_frame,
+            columns=[None, "Name", "(x,y)"],
+            display_func=display_scene_actor,
+            buttons_info=[
+                {"text": "Add Actor", "command": self.add_scene_actor},
+                {"text": "Edit Actor", "command": self.edit_scene_actor},
+                {"text": "Delete Actor", "command": self.delete_scene_actor},
+                {"text": "Move Up", "command": lambda: self.move_scene_actor(-1)},
+                {"text": "Move Down", "command": lambda: self.move_scene_actor(1)},
+            ],
+            btns_per_row=5,
+            select_func=self.select_scene_actor,
+        )
+        self.sa_listbox.pack(side="top", fill="both", expand=True)
+
     def unsaved_scene(self, idx: int, set_all: bool = True):
         self.scenes_save_status[idx] = (False, self.scenes_save_status[idx][1])
         if set_all:
@@ -547,11 +572,13 @@ class AnimationEditorApp(tk.Tk):
             self.set_scene(scene_idx)
 
     def clean_scene(self):
+        self.clean_scene_actor()
         self.curr_scene_idx = None
         self.scene_listbox.select_clear()
         self.scene_notebook.pack_forget()
         self.scene_setting_frame.pack_forget()
         self.scene_name_label["text"] = ""
+        self.sa_listbox.clean()
 
     def set_scene(self, idx: int):
         self.clean_scene()
@@ -571,6 +598,8 @@ class AnimationEditorApp(tk.Tk):
         self.cam_height_entry.set(cam.height)
         self.cam_start_x_entry.set(cam.start_x)
         self.cam_start_y_entry.set(cam.start_y)
+
+        self.sa_listbox.set(scene.actors)
 
     def add_scene(self):
         scene_names = [scene.name for scene in self.scenes]
@@ -696,6 +725,120 @@ class AnimationEditorApp(tk.Tk):
         cam.start_y = start_y
 
         self.unsaved_scene(scene_idx)
+
+    def clean_scene_actor(self):
+        self.curr_sa_idx = None
+        self.sa_listbox.select_clear()
+
+    def set_scene_actor(self, idx: int):
+        if self.curr_scene_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        self.set_scene(scene_idx)
+        self.curr_sa_idx = idx
+        self.sa_listbox.select(idx)
+
+    def add_scene_actor(self):
+        if self.curr_scene_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+
+        if len(self.actors) == 0:
+            messagebox.showinfo(
+                "No actors",
+                "There are no actors defined. Please create at least one actor first."
+            )
+            return
+
+        actor_names = [actor.name for actor in self.actors]
+
+        popup = tk.Toplevel(self)
+        popup.title("Add Actor to Scene")
+
+        actor_entry = DropdownEntry(
+            popup, "Actor", actor_names,
+        )
+        actor_entry.pack(side="top", fill="x", pady=1)
+        start_x_entry = IntEntryFrame(popup, "Start X Coord")
+        start_x_entry.pack(side="top", pady=1)
+        start_y_entry = IntEntryFrame(popup, "Start Y Coord")
+        start_y_entry.pack(side="top", pady=1)
+
+        def add_and_close():
+            actor_name, start_x, start_y = actor_entry.get(), start_x_entry.get(), start_y_entry.get()
+            if actor_name is None or start_x is None or start_y is None:
+                return
+            actor_idx = actor_names.index(actor_name)
+            sa = SceneActor(actor=self.actors[actor_idx], start_x=start_x, start_y=start_y)
+            scene.actors.append(sa)
+            self.unsaved_scene(scene_idx)
+            self.set_scene_actor(len(scene.actors) - 1)
+            popup.destroy()
+
+        tk.Button(popup, text="Add", command=add_and_close).pack(side="bottom", pady=10)
+
+    def edit_scene_actor(self):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        sa_idx = self.curr_sa_idx
+        sa = scene.actors[sa_idx]
+
+        popup = tk.Toplevel(self)
+        popup.title("Edit Actor")
+
+        start_x_entry = IntEntryFrame(popup, "Start X Coord", sa.start_x)
+        start_x_entry.pack(side="top", fill="x", pady=1)
+        start_y_entry = IntEntryFrame(popup, "Start Y Coord", sa.start_y)
+        start_y_entry.pack(side="top", fill="x", pady=1)
+
+        def edit_and_close():
+            start_x, start_y = start_x_entry.get(), start_y_entry.get()
+            if start_x is None or start_y is None:
+                return
+            sa.start_x = start_x
+            sa.start_y = start_y
+            self.unsaved_scene(scene_idx)
+            popup.destroy()
+
+        tk.Button(popup, text="Edit", command=edit_and_close).pack(side="bottom", pady=10)
+
+    def delete_scene_actor(self):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        sa_idx = self.curr_sa_idx
+
+        scene.actors.pop(sa_idx)
+        self.clean_scene_actor()
+        self.unsaved_scene(scene_idx)
+
+    def select_scene_actor(self, event, treeview):
+        if self.curr_scene_idx is None:
+            return
+
+        if treeview.selection():
+            idx = int(treeview.selection()[0])
+            if idx != self.curr_sa_idx:
+                self.set_scene_actor(idx)
+
+    def move_scene_actor(self, delta: int):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        sa_idx = self.curr_sa_idx
+
+        n_idx = max(0, min(sa_idx + delta, len(scene.actors) - 1))
+        if n_idx == sa_idx:
+            return
+        actor = scene.actors.pop(sa_idx)
+        scene.actors.insert(n_idx, actor)
+        self.unsaved_scene(scene_idx)
+        self.set_scene_actor(n_idx)
 
     def save_scene_as(self):
         if self.curr_scene_idx is None:
