@@ -25,6 +25,7 @@ class AnimationEditorApp(tk.Tk):
         self.scenes_save_status: list[tuple[bool, str | None]] = []
         self.curr_scene_idx: Optional[int] = None
         self.curr_sa_idx: Optional[int] = None
+        self.curr_sched_idx: Optional[int] = None
 
         self.create_tabs()
     
@@ -322,7 +323,6 @@ class AnimationEditorApp(tk.Tk):
         self.comp_listbox.select(idx)
 
     def add_or_edit_component(self, new):
-        print(self.curr_actor_idx, self.curr_action_idx, self.curr_comp_idx)
         if self.curr_actor_idx is None or self.curr_action_idx is None:
             return
 
@@ -556,6 +556,35 @@ class AnimationEditorApp(tk.Tk):
         )
         self.sa_listbox.pack(side="top", fill="both", expand=True)
 
+        # Scheduled action list
+        def display_scheduled_action(sched: ScheduledAction) -> list[None | str]:
+            return [
+                None,
+                sched.action.name,
+                str(sched.duration_sec),
+                str(sched.start_offset_sec)
+            ]
+
+        self.sched_listbox = EditableTreeFrame(
+            parent=scene_actor_frame,
+            columns=[None, "Name", "Duration (s)", "Start offset (s)"],
+            display_func=display_scheduled_action,
+            buttons_info=[
+                {
+                    "text": "Add Action",
+                    "command": lambda: self.add_or_edit_scheduled_action(True),
+                },
+                {
+                    "text": "Edit Action",
+                    "command": lambda: self.add_or_edit_scheduled_action(False),
+                },
+                {"text": "Delete Action", "command": self.delete_scheduled_action},
+            ],
+            btns_per_row=5,
+            select_func=self.select_scheduled_action,
+        )
+        self.sched_listbox.pack(side="top", fill="both", expand=True)
+
     def unsaved_scene(self, idx: int, set_all: bool = True):
         self.scenes_save_status[idx] = (False, self.scenes_save_status[idx][1])
         if set_all:
@@ -563,6 +592,8 @@ class AnimationEditorApp(tk.Tk):
 
     def set_all_scenes(self):
         scene_idx = self.curr_scene_idx
+        sa_idx = self.curr_sa_idx
+        sched_idx = self.curr_sched_idx
 
         self.clean_scene()
         self.scene_listbox.clean()
@@ -570,6 +601,10 @@ class AnimationEditorApp(tk.Tk):
         self.scene_listbox.set(self.scenes)
         if scene_idx is not None:
             self.set_scene(scene_idx)
+        if sa_idx is not None:
+            self.set_scene_actor(sa_idx)
+        if sched_idx is not None:
+            self.set_scheduled_action(sched_idx)
 
     def clean_scene(self):
         self.clean_scene_actor()
@@ -727,7 +762,9 @@ class AnimationEditorApp(tk.Tk):
         self.unsaved_scene(scene_idx)
 
     def clean_scene_actor(self):
+        self.clean_scheduled_action()
         self.curr_sa_idx = None
+        self.sched_listbox.clean()
         self.sa_listbox.select_clear()
 
     def set_scene_actor(self, idx: int):
@@ -736,6 +773,8 @@ class AnimationEditorApp(tk.Tk):
         scene_idx = self.curr_scene_idx
         self.set_scene(scene_idx)
         self.curr_sa_idx = idx
+        sa = self.scenes[scene_idx].actors[idx]
+        self.sched_listbox.set(sa.scheduled_actions)
         self.sa_listbox.select(idx)
 
     def add_scene_actor(self):
@@ -839,6 +878,142 @@ class AnimationEditorApp(tk.Tk):
         scene.actors.insert(n_idx, actor)
         self.unsaved_scene(scene_idx)
         self.set_scene_actor(n_idx)
+
+    def clean_scheduled_action(self):
+        self.sched_listbox.select_clear()
+        self.curr_sched_idx = None
+
+    def set_scheduled_action(self, sched_idx: int):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+        scene = self.scenes[self.curr_scene_idx]
+        sa_idx = self.curr_sa_idx
+        self.set_scene_actor(sa_idx)
+        self.curr_sched_idx = sched_idx
+        self.sched_listbox.select(sched_idx)
+
+    def add_or_edit_scheduled_action(self, new: bool):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        sa_idx = self.curr_sa_idx
+        sa = scene.actors[sa_idx]
+
+        sched = None
+        idx = len(sa.scheduled_actions)
+        if not new:
+            if self.curr_sched_idx is None:
+                return
+            idx = self.curr_sched_idx
+            sched = sa.scheduled_actions[idx]
+        window_type = "Add" if new else "Edit"
+
+        popup = tk.Toplevel(self)
+        popup.title(f"{window_type} Scheduled Action")
+
+        toggle = ToggleFrame(
+            parent=popup,
+            toggle_label="Is Idle",
+            toggle_default=sched.action.name == "Idle" if sched else False,
+        )
+        toggle.pack(side="top", fill="x", pady=1)
+        false_frame = toggle.frame_false
+        true_frame = toggle.frame_true
+
+        idle_sprite_var = ImageFileEntry(
+            parent=true_frame,
+            label="Sprite",
+            default=sched.action.components[0].sprite if sched and sched.action.name == "Idle" else None,
+        )
+        idle_sprite_var.pack(side="top", fill="x", pady=1)
+
+        action_names = [action.name for action in sa.actor.actions]
+        action_name_entry = DropdownEntry(
+            parent=false_frame,
+            label="Action",
+            options=action_names,
+            default=sched.action.name if sched else None,
+        )
+        action_name_entry.pack(side="top", fill="x", pady=1)
+
+        duration_entry = FloatEntryFrame(
+            parent=popup,
+            label="Duration (s)",
+            default=sched.duration_sec if sched else 1.0,
+        )
+        duration_entry.pack(side="top", fill="x", pady=1)
+
+        start_offset_entry = FloatEntryFrame(
+            parent=popup,
+            label="Start Offset (s):",
+            default=sched.start_offset_sec if sched else 0.0,
+        )
+        start_offset_entry.pack(side="top", fill="x", pady=1)
+
+        is_visible_var = tk.BooleanVar(value=sched.is_visible if sched else True)
+        ttk.Checkbutton(
+            popup, text="Is Visible", variable=is_visible_var, onvalue=True, offvalue=False,
+        ).pack(side="top", anchor="w", pady=1)
+
+        def save_and_close():
+            duration = duration_entry.get()
+            start_offset = start_offset_entry.get()
+            is_visible = is_visible_var.get()
+            if duration is None or start_offset is None or is_visible is None:
+                return
+
+            if toggle.get():
+                idle_sprite = idle_sprite_var.get()
+                if idle_sprite is None:
+                    return
+                action = Action("Idle", components=[ActionComponent(idle_sprite, 1.0, 0, 0)])
+            else:
+                action_name = action_name_entry.get()
+                if action_name is None:
+                    return
+                action_idx = action_names.index(action_name)
+                action = sa.actor.actions[action_idx]
+
+            new_sched = ScheduledAction(
+                action=action,
+                duration_sec=duration,
+                start_offset_sec=start_offset,
+                is_visible=is_visible,
+            )
+
+            if new:
+                sa.scheduled_actions.append(new_sched)
+            else:
+                sa.scheduled_actions[idx] = new_sched
+            print(sa)
+            self.unsaved_scene(scene_idx)
+            self.set_scheduled_action(idx)
+            popup.destroy()
+
+        tk.Button(popup, text=window_type, command=save_and_close).pack(pady=10)
+
+    def delete_scheduled_action(self):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None or self.curr_sched_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        sa_idx = self.curr_sa_idx
+        sa = scene.actors[sa_idx]
+        sched_idx = self.curr_sched_idx
+
+        sa.scheduled_actions.pop(sched_idx)
+        self.clean_scheduled_action()
+        self.unsaved_scene(scene_idx)
+
+    def select_scheduled_action(self, event, treeview):
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+
+        if treeview.selection():
+            idx = int(treeview.selection()[0])
+            if idx != self.curr_sched_idx:
+                self.set_scheduled_action(idx)
 
     def save_scene_as(self):
         if self.curr_scene_idx is None:
