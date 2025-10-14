@@ -24,6 +24,7 @@ class AnimationEditorApp(tk.Tk):
         self.scenes: list[Scene] = []
         self.scenes_save_status: list[tuple[bool, str | None]] = []
         self.curr_scene_idx: Optional[int] = None
+        self.curr_cam_move_idx: Optional[int] = None
         self.curr_sa_idx: Optional[int] = None
         self.curr_sched_idx: Optional[int] = None
 
@@ -532,6 +533,28 @@ class AnimationEditorApp(tk.Tk):
         self.cam_start_y_entry.pack(side="top", fill="x", pady=2)
         tk.Button(global_cam_frame, text="Update Camera", command=self.update_cam_settings).pack(side="bottom")
 
+        # Camera moves
+        def display_cam_moves(cam_move: CameraMove) -> list[str | None]:
+            return [
+                None,
+                cam_move.linked_sa.actor.name if cam_move.linked_sa else f"({cam_move.x},{cam_move.y})",
+                str(cam_move.duration_sec),
+            ]
+
+        self.cam_listbox = EditableTreeFrame(
+            parent=camera_frame,
+            columns=[None, "Actor or (x,y)", "Duration (s)"],
+            display_func=display_cam_moves,
+            buttons_info=[
+                {"text": "Add Camera Move", "command": lambda: self.add_or_edit_camera_move(True)},
+                {"text": "Edit Camera Move", "command": lambda: self.add_or_edit_camera_move(False)},
+                {"text": "Delete Camera Move", "command": self.delete_camera_move},
+            ],
+            btns_per_row=3,
+            select_func=self.select_camera_move,
+        )
+        self.cam_listbox.pack(side="right", fill="both", expand=True)
+
         # Scene actors and actions
         scene_actor_frame = tk.Frame(self.scene_notebook)
         self.scene_notebook.add(scene_actor_frame, text="Actors")
@@ -607,6 +630,7 @@ class AnimationEditorApp(tk.Tk):
             self.set_scheduled_action(sched_idx)
 
     def clean_scene(self):
+        self.clean_cam_move()
         self.clean_scene_actor()
         self.curr_scene_idx = None
         self.scene_listbox.select_clear()
@@ -633,6 +657,7 @@ class AnimationEditorApp(tk.Tk):
         self.cam_height_entry.set(cam.height)
         self.cam_start_x_entry.set(cam.start_x)
         self.cam_start_y_entry.set(cam.start_y)
+        self.cam_listbox.set(cam.moves)
 
         self.sa_listbox.set(scene.actors)
 
@@ -760,6 +785,111 @@ class AnimationEditorApp(tk.Tk):
         cam.start_y = start_y
 
         self.unsaved_scene(scene_idx)
+
+    def clean_cam_move(self):
+        self.curr_cam_move_idx = None
+        self.cam_listbox.select_clear()
+
+    def set_cam_move(self, idx: int):
+        if self.curr_scene_idx is None:
+            return
+        self.curr_cam_move_idx = idx
+        self.cam_listbox.select(idx)
+
+    def add_or_edit_camera_move(self, new: bool):
+        if self.curr_scene_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        cam = scene.camera
+
+        cam_move = None
+        idx = len(cam.moves)
+        if not new:
+            if self.curr_cam_move_idx is None:
+                return
+            idx = self.curr_cam_move_idx
+            cam_move = cam.moves[idx]
+        window_type = "Add" if new else "Edit"
+
+        popup = tk.Toplevel(self)
+        popup.title(f"{window_type} Camera Movement")
+
+        toggle = ToggleFrame(
+            parent=popup,
+            toggle_label="Is linked",
+            toggle_default=(cam_move.linked_sa is not None) if cam_move else False,
+        )
+        toggle.pack(side="top", fill="x", pady=1)
+        false_frame = toggle.frame_false
+        true_frame = toggle.frame_true
+
+        actor_names = [sa.actor.name for sa in scene.actors]
+        linked_actor_entry = DropdownEntry(
+            parent=true_frame,
+            label="Linked Actor",
+            options=actor_names,
+            default=cam_move.linked_sa.actor.name if (cam_move and cam_move.linked_sa) else None,
+        )
+        linked_actor_entry.pack(side="top", fill="x", pady=1)
+
+        x_coord_entry = IntEntryFrame(false_frame, "X Offset", cam_move.x if cam_move else 0)
+        x_coord_entry.pack(side="top", fill="x", pady=1)
+
+        y_coord_entry = IntEntryFrame(false_frame, "Y Offset", cam_move.y if cam_move else 0)
+        y_coord_entry.pack(side="top", fill="x", pady=1)
+
+        duration_entry = FloatEntryFrame(popup, "Duration (s)", cam_move.duration_sec if cam_move else 1.0)
+        duration_entry.pack(side="top", fill="x", pady=1)
+
+        def save_and_close():
+            duration = duration_entry.get()
+            if duration is None:
+                return
+
+            if toggle.get():
+                actor_name = linked_actor_entry.get()
+                if actor_name is None:
+                    return
+                actor_idx = actor_names.index(actor_name)
+                actor = scene.actors[actor_idx]
+                new_cam_move = CameraMove(linked_sa=actor, duration_sec=duration)
+            else:
+                x = x_coord_entry.get()
+                y = y_coord_entry.get()
+                if x is None or y is None:
+                    return
+                new_cam_move = CameraMove(x=x, y=y, duration_sec=duration)
+
+            if new:
+                cam.moves.append(new_cam_move)
+            else:
+                cam.moves[idx] = new_cam_move
+
+            self.unsaved_scene(scene_idx)
+            self.set_cam_move(idx)
+            popup.destroy()
+
+        tk.Button(popup, text=window_type, command=save_and_close).pack(pady=10)
+
+    def delete_camera_move(self):
+        if self.curr_scene_idx is None or self.curr_cam_move_idx is None:
+            return
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+        cam = scene.camera
+        cam.moves.pop(self.curr_cam_move_idx)
+        self.clean_cam_move()
+        self.unsaved_scene(scene_idx)
+
+    def select_camera_move(self, event, treeview):
+        if self.curr_scene_idx is None:
+            return
+
+        if treeview.selection():
+            idx = int(treeview.selection()[0])
+            if idx != self.curr_cam_move_idx:
+                self.set_cam_move(idx)
 
     def clean_scene_actor(self):
         self.clean_scheduled_action()
@@ -986,7 +1116,6 @@ class AnimationEditorApp(tk.Tk):
                 sa.scheduled_actions.append(new_sched)
             else:
                 sa.scheduled_actions[idx] = new_sched
-            print(sa)
             self.unsaved_scene(scene_idx)
             self.set_scheduled_action(idx)
             popup.destroy()
