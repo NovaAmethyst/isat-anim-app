@@ -121,27 +121,14 @@ class AnimationEditorApp(tk.Tk):
         )
         self.comp_listbox.pack(side="top", fill="both", expand=True)
 
-    def set_actor_all(self):
-        actor_idx = self.curr_actor_idx
-        action_idx = self.curr_action_idx
-        comp_idx = self.curr_comp_idx
-
-        self.clean_actor()
-        self.actor_listbox.clean()
-
+    def set_actor_list(self):
         self.actor_listbox.set(self.actors)
-        if comp_idx is not None:
-            self.set_component(comp_idx)
-        elif action_idx is not None:
-            self.set_action(action_idx)
-        elif actor_idx is not None:
-            self.set_actor(actor_idx)
 
-    def unsaved_actor(self, idx: int):
-        self.actors_save_status[idx] = (False, self.actors_save_status[idx][1])
-
-        self.actor_listbox.clean()
-        self.actor_listbox.set(self.actors)
+    def unsaved_actor(self, actor_idx: int):
+        self.actors_save_status[actor_idx] = (
+            False, self.actors_save_status[actor_idx][1]
+        )
+        self.set_actor_list()
 
     def clean_actor(self):
         self.clean_action()
@@ -152,17 +139,17 @@ class AnimationEditorApp(tk.Tk):
         self.actor_name_label["text"] = ""
         self.action_listbox.clean()
 
-    def set_actor(self, idx: int):
-        self.clean_actor()
+    def set_actor(self, actor_idx: int):
+        if actor_idx != self.curr_actor_idx:
+            self.clean_action()
+        self.curr_actor_idx = actor_idx
 
-        self.curr_actor_idx = idx
-        self.actor_listbox.select(idx)
-
-        actor = self.actors[idx]
-
+        actor = self.actors[actor_idx]
         self.actor_name_label["text"] = actor.name
         self.action_listbox.set(actor.actions)
-    
+
+        self.actor_listbox.select(actor_idx)
+
     def _add_or_replace_actor(self, actor: Actor, path: str | None = None, idx: int | None = None):
         save_status = (path is not None, path)
         if idx is None:
@@ -173,7 +160,7 @@ class AnimationEditorApp(tk.Tk):
             self.actors[idx] = actor
             self.actors_save_status[idx] = save_status
 
-        self.set_actor_all()
+        self.set_actor_list()
         self.set_actor(idx)
     
     def add_actor(self):
@@ -215,7 +202,7 @@ class AnimationEditorApp(tk.Tk):
         self.actors.pop(idx)
         self.actors_save_status.pop(idx)
         self.clean_actor()
-        self.set_actor_all()
+        self.set_actor_list()
 
     def select_actor(self, event, listbox):
         idx = listbox.curselection()
@@ -242,19 +229,18 @@ class AnimationEditorApp(tk.Tk):
 
         self.comp_listbox.clean()
 
-    def set_action(self, idx):
+    def set_action(self, action_idx: int):
         if self.curr_actor_idx is None:
             return
-        actor_idx = self.curr_actor_idx
+        if self.curr_action_idx != action_idx:
+            self.clean_component()
 
-        self.clean_actor()
-        self.set_actor(actor_idx)
-        self.curr_action_idx = idx
-        self.action_listbox.select(idx)
+        self.curr_action_idx = action_idx
+        self.comp_listbox.set(
+            self.actors[self.curr_actor_idx].actions[action_idx].components
+        )
 
-        actor = self.actors[actor_idx]
-        action = actor.actions[idx]
-        self.comp_listbox.set(action.components)
+        self.action_listbox.select(action_idx)
 
     def add_action(self):
         if self.curr_actor_idx is None:
@@ -272,6 +258,7 @@ class AnimationEditorApp(tk.Tk):
         idx = len(actor.actions) - 1
 
         self.unsaved_actor(actor_idx)
+        self.set_actor(actor_idx)
         self.set_action(idx)
 
     def delete_action(self):
@@ -284,6 +271,7 @@ class AnimationEditorApp(tk.Tk):
 
         self.unsaved_actor(actor_idx)
         self.set_actor(actor_idx)
+        self.clean_action()
 
     def select_action(self, event, listbox):
         if self.curr_actor_idx is None:
@@ -303,6 +291,7 @@ class AnimationEditorApp(tk.Tk):
         def save_action_name(idx: int, name: str):
             actor.actions[idx].name = name
             self.unsaved_actor(actor_idx)
+            self.set_actor(actor_idx)
             self.set_action(idx)
 
         action_idx = self.curr_action_idx
@@ -313,15 +302,12 @@ class AnimationEditorApp(tk.Tk):
         self.comp_listbox.select_clear()
         self.curr_comp_idx = None
 
-    def set_component(self, idx):
+    def set_component(self, component_idx: int):
         if self.curr_actor_idx is None or self.curr_action_idx is None:
             return
-        action_idx = self.curr_action_idx
 
-        self.clean_action()
-        self.set_action(action_idx)
-        self.curr_comp_idx = idx
-        self.comp_listbox.select(idx)
+        self.curr_comp_idx = component_idx
+        self.comp_listbox.select(component_idx)
 
     def add_or_edit_component(self, new):
         if self.curr_actor_idx is None or self.curr_action_idx is None:
@@ -387,6 +373,7 @@ class AnimationEditorApp(tk.Tk):
 
             popup.destroy()
             self.unsaved_actor(actor_idx)
+            self.set_action(action_idx)
             self.set_component(idx)
 
         tk.Button(popup, text=window_type, command=save_component).pack(pady=10)
@@ -450,7 +437,7 @@ class AnimationEditorApp(tk.Tk):
             json.dump(actor_dict, f, indent=2)
 
         self.actors_save_status[idx] = (True, path)
-        self.set_actor_all()
+        self.set_actor_list()
         self.set_actor(idx)
 
     def init_scene_tab(self):
