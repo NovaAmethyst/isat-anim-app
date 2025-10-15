@@ -595,26 +595,12 @@ class AnimationEditorApp(tk.Tk):
         )
         self.sched_listbox.pack(side="top", fill="both", expand=True)
 
-    def unsaved_scene(self, idx: int, set_all: bool = True):
+    def unsaved_scene_bis(self, idx: int):
         self.scenes_save_status[idx] = (False, self.scenes_save_status[idx][1])
-        if set_all:
-            self.set_all_scenes()
+        self.set_scene_list()
 
-    def set_all_scenes(self):
-        scene_idx = self.curr_scene_idx
-        sa_idx = self.curr_sa_idx
-        sched_idx = self.curr_sched_idx
-
-        self.clean_scene()
-        self.scene_listbox.clean()
-
+    def set_scene_list(self):
         self.scene_listbox.set(self.scenes)
-        if scene_idx is not None:
-            self.set_scene(scene_idx)
-        if sa_idx is not None:
-            self.set_scene_actor(sa_idx)
-        if sched_idx is not None:
-            self.set_scheduled_action(sched_idx)
 
     def clean_scene(self):
         self.clean_cam_move()
@@ -626,18 +612,25 @@ class AnimationEditorApp(tk.Tk):
         self.scene_name_label["text"] = ""
         self.sa_listbox.clean()
 
-    def set_scene(self, idx: int):
-        self.clean_scene()
+    def set_scene_bis(self, scene_idx: int):
+        if self.curr_scene_idx != scene_idx:
+            self.clean_action()
+            self.clean_cam_move()
 
-        self.curr_scene_idx = idx
-        self.scene_listbox.select(idx)
-        self.scene_setting_frame.pack(side="top", fill="x")
-        self.scene_notebook.pack(side="top", fill="both", expand=True)
+        if self.curr_scene_idx is None:
+            self.scene_setting_frame.pack(side="top", fill="x")
+            self.scene_notebook.pack(side="top", fill="both", expand=True)
 
-        scene = self.scenes[idx]
+        self.curr_scene_idx = scene_idx
+        scene = self.scenes[scene_idx]
+
         self.scene_len_entry.set(scene.duration_sec)
         self.scene_name_label["text"] = scene.name
-        self.background_image.set(scene.background)
+        if scene.background is None:
+            self.background_image.clean()
+        else:
+            self.background_image.set(scene.background)
+        self.sa_listbox.set(scene.actors)
 
         cam = scene.camera
         self.cam_width_entry.set(cam.width)
@@ -646,7 +639,7 @@ class AnimationEditorApp(tk.Tk):
         self.cam_start_y_entry.set(cam.start_y)
         self.cam_listbox.set(cam.moves)
 
-        self.sa_listbox.set(scene.actors)
+        self.scene_listbox.select(scene_idx)
 
     def add_scene(self):
         scene_names = [scene.name for scene in self.scenes]
@@ -657,8 +650,8 @@ class AnimationEditorApp(tk.Tk):
         self.scenes.append(scene)
         self.scenes_save_status.append((False, None))
 
-        self.set_all_scenes()
-        self.set_scene(len(self.scenes) - 1)
+        self.set_scene_list()
+        self.set_scene_bis(len(self.scenes) - 1)
 
     def open_scene(self):
         path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
@@ -672,8 +665,8 @@ class AnimationEditorApp(tk.Tk):
         self.scenes.append(scene)
         self.scenes_save_status.append((True, path))
 
-        self.set_all_scenes()
-        self.set_scene(len(self.scenes) - 1)
+        self.set_scene_list()
+        self.set_scene_bis(len(self.scenes) - 1)
 
     def delete_scene(self):
         if self.curr_scene_idx is None:
@@ -692,12 +685,12 @@ class AnimationEditorApp(tk.Tk):
         self.scenes.pop(idx)
         self.scenes_save_status.pop(idx)
         self.clean_scene()
-        self.set_all_scenes()
+        self.set_scene_list()
 
     def select_scene(self, event, listbox):
         idx = listbox.curselection()
         if idx and idx[0] != self.curr_scene_idx:
-            self.set_scene(idx[0])
+            self.set_scene_bis(idx[0])
 
     def rename_scene(self, event, listbox):
         if self.curr_scene_idx is None:
@@ -705,8 +698,8 @@ class AnimationEditorApp(tk.Tk):
 
         def save_scene_name(idx: int, name: str) -> None:
             self.scenes[idx].name = name
-            self.unsaved_scene(idx)
-            self.set_scene(idx)
+            self.unsaved_scene_bis(idx)
+            self.set_scene_bis(idx)
 
         scene_idx = self.curr_scene_idx
         old_name = self.scenes[scene_idx].name
@@ -722,7 +715,7 @@ class AnimationEditorApp(tk.Tk):
         if scene_len is None:
             return
         scene.duration_sec = scene_len
-        self.unsaved_scene(scene_idx)
+        self.unsaved_scene_bis(scene_idx)
 
     def set_background(self):
         if self.curr_scene_idx is None:
@@ -751,7 +744,7 @@ class AnimationEditorApp(tk.Tk):
 
         scene.background = img
         self.background_image.set(img)
-        self.unsaved_scene(idx)
+        self.unsaved_scene_bis(idx)
 
     def update_cam_settings(self):
         if self.curr_scene_idx is None:
@@ -771,17 +764,17 @@ class AnimationEditorApp(tk.Tk):
         cam.start_x = start_x
         cam.start_y = start_y
 
-        self.unsaved_scene(scene_idx)
+        self.unsaved_scene_bis(scene_idx)
 
     def clean_cam_move(self):
         self.curr_cam_move_idx = None
         self.cam_listbox.select_clear()
 
-    def set_cam_move(self, idx: int):
+    def set_cam_move_bis(self, move_idx: int):
         if self.curr_scene_idx is None:
             return
-        self.curr_cam_move_idx = idx
-        self.cam_listbox.select(idx)
+        self.curr_cam_move_idx = move_idx
+        self.cam_listbox.select(move_idx)
 
     def add_or_edit_camera_move(self, new: bool):
         if self.curr_scene_idx is None:
@@ -853,8 +846,9 @@ class AnimationEditorApp(tk.Tk):
             else:
                 cam.moves[idx] = new_cam_move
 
-            self.unsaved_scene(scene_idx)
-            self.set_cam_move(idx)
+            self.unsaved_scene_bis(scene_idx)
+            self.set_scene_bis(scene_idx)
+            self.set_cam_move_bis(idx)
             popup.destroy()
 
         tk.Button(popup, text=window_type, command=save_and_close).pack(pady=10)
@@ -867,7 +861,8 @@ class AnimationEditorApp(tk.Tk):
         cam = scene.camera
         cam.moves.pop(self.curr_cam_move_idx)
         self.clean_cam_move()
-        self.unsaved_scene(scene_idx)
+        self.unsaved_scene_bis(scene_idx)
+        self.set_scene_bis(scene_idx)
 
     def select_camera_move(self, event, treeview):
         if self.curr_scene_idx is None:
@@ -876,7 +871,7 @@ class AnimationEditorApp(tk.Tk):
         if treeview.selection():
             idx = int(treeview.selection()[0])
             if idx != self.curr_cam_move_idx:
-                self.set_cam_move(idx)
+                self.set_cam_move_bis(idx)
 
     def clean_scene_actor(self):
         self.clean_scheduled_action()
@@ -884,15 +879,17 @@ class AnimationEditorApp(tk.Tk):
         self.sched_listbox.clean()
         self.sa_listbox.select_clear()
 
-    def set_scene_actor(self, idx: int):
+    def set_scene_actor_bis(self, sa_idx: int, clean: bool = True):
         if self.curr_scene_idx is None:
             return
-        scene_idx = self.curr_scene_idx
-        self.set_scene(scene_idx)
-        self.curr_sa_idx = idx
-        sa = self.scenes[scene_idx].actors[idx]
+        if self.curr_sa_idx != sa_idx and clean:
+            self.clean_scheduled_action()
+
+        self.curr_sa_idx = sa_idx
+        sa = self.scenes[self.curr_scene_idx].actors[sa_idx]
         self.sched_listbox.set(sa.scheduled_actions)
-        self.sa_listbox.select(idx)
+
+        self.sa_listbox.select(sa_idx)
 
     def add_scene_actor(self):
         if self.curr_scene_idx is None:
@@ -928,8 +925,9 @@ class AnimationEditorApp(tk.Tk):
             actor_idx = actor_names.index(actor_name)
             sa = SceneActor(actor=self.actors[actor_idx], start_x=start_x, start_y=start_y)
             scene.actors.append(sa)
-            self.unsaved_scene(scene_idx)
-            self.set_scene_actor(len(scene.actors) - 1)
+            self.unsaved_scene_bis(scene_idx)
+            self.set_scene_bis(scene_idx)
+            self.set_scene_actor_bis(len(scene.actors) - 1)
             popup.destroy()
 
         tk.Button(popup, text="Add", command=add_and_close).pack(side="bottom", pady=10)
@@ -956,7 +954,9 @@ class AnimationEditorApp(tk.Tk):
                 return
             sa.start_x = start_x
             sa.start_y = start_y
-            self.unsaved_scene(scene_idx)
+            self.unsaved_scene_bis(scene_idx)
+            self.set_scene_bis(scene_idx)
+            self.set_scene_actor_bis(sa_idx)
             popup.destroy()
 
         tk.Button(popup, text="Edit", command=edit_and_close).pack(side="bottom", pady=10)
@@ -970,7 +970,8 @@ class AnimationEditorApp(tk.Tk):
 
         scene.actors.pop(sa_idx)
         self.clean_scene_actor()
-        self.unsaved_scene(scene_idx)
+        self.unsaved_scene_bis(scene_idx)
+        self.set_scene_bis(scene_idx)
 
     def select_scene_actor(self, event, treeview):
         if self.curr_scene_idx is None:
@@ -979,7 +980,7 @@ class AnimationEditorApp(tk.Tk):
         if treeview.selection():
             idx = int(treeview.selection()[0])
             if idx != self.curr_sa_idx:
-                self.set_scene_actor(idx)
+                self.set_scene_actor_bis(idx)
 
     def move_scene_actor(self, delta: int):
         if self.curr_scene_idx is None or self.curr_sa_idx is None:
@@ -993,19 +994,17 @@ class AnimationEditorApp(tk.Tk):
             return
         actor = scene.actors.pop(sa_idx)
         scene.actors.insert(n_idx, actor)
-        self.unsaved_scene(scene_idx)
-        self.set_scene_actor(n_idx)
+        self.unsaved_scene_bis(scene_idx)
+        self.set_scene_bis(scene_idx)
+        self.set_scene_actor_bis(n_idx, clean=False)
 
     def clean_scheduled_action(self):
         self.sched_listbox.select_clear()
         self.curr_sched_idx = None
 
-    def set_scheduled_action(self, sched_idx: int):
+    def set_scheduled_action_bis(self, sched_idx: int):
         if self.curr_scene_idx is None or self.curr_sa_idx is None:
             return
-        scene = self.scenes[self.curr_scene_idx]
-        sa_idx = self.curr_sa_idx
-        self.set_scene_actor(sa_idx)
         self.curr_sched_idx = sched_idx
         self.sched_listbox.select(sched_idx)
 
@@ -1103,8 +1102,9 @@ class AnimationEditorApp(tk.Tk):
                 sa.scheduled_actions.append(new_sched)
             else:
                 sa.scheduled_actions[idx] = new_sched
-            self.unsaved_scene(scene_idx)
-            self.set_scheduled_action(idx)
+            self.unsaved_scene_bis(scene_idx)
+            self.set_scene_actor_bis(sa_idx)
+            self.set_scheduled_action_bis(idx)
             popup.destroy()
 
         tk.Button(popup, text=window_type, command=save_and_close).pack(pady=10)
@@ -1120,7 +1120,8 @@ class AnimationEditorApp(tk.Tk):
 
         sa.scheduled_actions.pop(sched_idx)
         self.clean_scheduled_action()
-        self.unsaved_scene(scene_idx)
+        self.unsaved_scene_bis(scene_idx)
+        self.set_scene_actor_bis(sa_idx)
 
     def select_scheduled_action(self, event, treeview):
         if self.curr_scene_idx is None or self.curr_sa_idx is None:
@@ -1129,7 +1130,7 @@ class AnimationEditorApp(tk.Tk):
         if treeview.selection():
             idx = int(treeview.selection()[0])
             if idx != self.curr_sched_idx:
-                self.set_scheduled_action(idx)
+                self.set_scheduled_action_bis(idx)
 
     def save_scene_as(self):
         if self.curr_scene_idx is None:
@@ -1166,7 +1167,7 @@ class AnimationEditorApp(tk.Tk):
             json.dump(scene_dict, f, indent=2)
 
         self.scenes_save_status[idx] = (True, path)
-        self.set_all_scenes()
+        self.set_scene_list()
 
     def window_close(self):
         unsaved_actors = False
