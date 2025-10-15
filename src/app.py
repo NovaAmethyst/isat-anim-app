@@ -1,7 +1,7 @@
 import json
 import tkinter as tk
 from PIL import ImageTk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 from typing import Optional
 
 from src.data_models import *
@@ -43,11 +43,9 @@ class AnimationEditorApp(tk.Tk):
         self.init_scene_tab()
 
         def on_tab_change(event):
-            print("In tab change function")
             notebook = event.widget
             tab_id = notebook.select()
             tab_text = notebook.tab(tab_id, "text")
-            print(f"Tab text is {tab_text}")
 
             if tab_text == "Scenes":
                 self.setup_scene_tab()
@@ -187,14 +185,11 @@ class AnimationEditorApp(tk.Tk):
         self._add_or_replace_actor(actor)
     
     def open_actor(self):
-        path = filedialog.askopenfilename(
-            filetypes=[("JSON Files", "*.json")],
-        )
-        if not path:
+        file_res = open_json_file()
+        if file_res is None:
             return
-        with open(path, "r") as f:
-            data = json.load(f)
-        
+        path, data = file_res
+
         actor = Actor.from_dict(data)
         # TODO add checks and behaviour for opening actor with pre-existing name in register
         self._add_or_replace_actor(actor, path=path)
@@ -421,13 +416,7 @@ class AnimationEditorApp(tk.Tk):
 
         idx = self.curr_actor_idx
         actor = self.actors[idx]
-        file_name = actor.name.replace(' ', '_').lower()
-
-        path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON Files", "*.json")],
-            initialfile=file_name,
-        )
+        path = get_json_save_filepath(actor)
         if not path:
             return
 
@@ -610,12 +599,10 @@ class AnimationEditorApp(tk.Tk):
         self.sched_listbox.pack(side="top", fill="both", expand=True)
 
     def setup_scene_tab(self):
-        print("In setup scene tab")
         scene_idx = self.curr_scene_idx
         cam_idx = self.curr_cam_move_idx
         sa_idx = self.curr_sa_idx
         sched_idx = self.curr_sched_idx
-        print(scene_idx, cam_idx, sa_idx, sched_idx)
 
         self.set_scene_list()
         if scene_idx is not None:
@@ -686,11 +673,10 @@ class AnimationEditorApp(tk.Tk):
         self.set_scene(len(self.scenes) - 1)
 
     def open_scene(self):
-        path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
-        if not path:
+        file_res = open_json_file()
+        if file_res is None:
             return
-        with open(path, "r") as f:
-            data = json.load(f)
+        path, data = file_res
 
         scene = Scene.from_dict(data)
 
@@ -756,23 +742,9 @@ class AnimationEditorApp(tk.Tk):
         idx = self.curr_scene_idx
         scene = self.scenes[idx]
 
-        path = filedialog.askopenfilename(
-            filetypes=[
-                ("PNG Images", "*.png"),
-                ("JPEG Images", "*.jpg"),
-                ("GIF Images", "*.gif"),
-                ("All Files", "*.*"),
-            ],
-        )
-        if path:
-            try:
-                img = Image.open(path).convert("RGBA")
-            except:
-                messagebox.showwarning(
-                    "Image non openable",
-                    f"Could not open the image at {path}.",
-                )
-                return
+        img = open_image_file()
+        if img is None:
+            return
 
         scene.background = img
         self.background_image.set(img)
@@ -1170,13 +1142,8 @@ class AnimationEditorApp(tk.Tk):
 
         idx = self.curr_scene_idx
         scene = self.scenes[idx]
-        file_name = scene.name.replace(' ', '_').lower()
 
-        path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON Files", "*.json")],
-            initialfile=file_name,
-        )
+        path = get_json_save_filepath(scene)
         if not path:
             return
         self.scenes_save_status[idx] = (self.scenes_save_status[idx][0], path)

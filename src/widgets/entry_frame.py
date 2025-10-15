@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from src.widgets.image_frame import ImageFrame
+from src.widgets.utils import *
 
 
 class BaseEntryFrame(tk.Frame):
@@ -76,24 +77,11 @@ class ImageFileEntry(tk.Frame):
         return self.img
 
     def set_file(self):
-        path = filedialog.askopenfilename(
-            filetypes=[
-                ("PNG Images", "*.png"),
-                ("JPEG Images", "*.jpg"),
-                ("GIF Images", "*.gif"),
-                ("All Files", "*.*"),
-            ],
-        )
-        if path:
-            try:
-                img = Image.open(path).convert("RGBA")
-                self.img = img
-                self.img_frame.set(self.img)
-            except:
-                messagebox.showwarning(
-                    "Image non openable",
-                    f"Could not open the image at {path}.",
-                )
+        img = open_image_file()
+        if img:
+            self.img = img
+            self.img_frame.set(self.img)
+        return
 
 
 class DropdownEntry(tk.Frame):
