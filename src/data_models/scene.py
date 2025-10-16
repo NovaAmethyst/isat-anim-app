@@ -356,7 +356,7 @@ class Scene:
         Creates a Scene object using the data stored in a dictionary.
     """
     name: str
-    background: Optional[Image] = None
+    background: Optional[Image.Image] = None
     duration_sec: float = 5.0
     actors: list[SceneActor] = field(default_factory=list)
     camera: Camera = field(default_factory=Camera)
