@@ -136,12 +136,12 @@ class Scene:
             "actors": [sa.to_dict() for sa in self.actors],
             "camera": self.camera.to_dict(),
         }
-    
+
     @staticmethod
     def from_dict(d: dict) -> "Scene":
         background_bytes = d.get("background", None)
         decoded_background = base64.b64decode(background_bytes) if background_bytes else None
-        return Scene(
+        scene = Scene(
             name=d["name"],
             background=Image.open(io.BytesIO(decoded_background)) if decoded_background else None,
             duration_sec=d.get("duration_sec", 5.0),
@@ -151,3 +151,15 @@ class Scene:
             ],
             camera=Camera.from_dict(d.get("camera", {})),
         )
+
+        actors_str = [str(actor.to_dict()) for actor in scene.actors]
+
+        for i in range(len(scene.camera.moves)):
+            if scene.camera.moves[i].linked_sa is None:
+                continue
+            linked_sa_str = str(scene.camera.moves[i].linked_sa.to_dict())
+            if linked_sa_str in actors_str:
+                actor_idx = actors_str.index(linked_sa_str)
+                scene.camera.moves[i].linked_sa = scene.actors[actor_idx]
+
+        return scene
