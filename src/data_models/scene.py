@@ -1,3 +1,15 @@
+"""
+Defines classes used to represent scenes.
+
+Classes
+-------
+Camera
+CameraMove
+Scene
+SceneActor
+ScheduledAction
+"""
+
 import base64
 import io
 from dataclasses import dataclass, field
@@ -9,12 +21,48 @@ from src.data_models.actor import Action, Actor
 
 @dataclass
 class ScheduledAction:
+    """
+    A class to represent a scheduled action.
+
+    Attributes
+    ----------
+    action : Action
+        the action which is scheduled
+    duration_sec : float
+        the time (in seconds) during which the scheduled action is executed
+    start_offset_sec : float (default 0.0)
+        the start time (in seconds) of the action animation
+    is_visible : bool (default True)
+        whether the action is visible in the animation
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the ScheduledAction object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates a ScheduledAction object using the data stored in a dictionary.
+    """
     action: Action
     duration_sec: float
     start_offset_sec: float = 0.0
     is_visible: bool = True
 
     def to_dict(self) -> dict:
+        """
+        Creates a dictionary representing the ScheduledAction object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the ScheduledAction object
+        """
         return {
             "action": self.action.to_dict(),
             "duration_sec": self.duration_sec,
@@ -24,6 +72,19 @@ class ScheduledAction:
     
     @staticmethod
     def from_dict(d: dict) -> "ScheduledAction":
+        """
+        Creates a ScheduledAction object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the ScheduledAction object creation
+
+        Returns
+        -------
+        ScheduledAction
+            the ScheduledAction object corresponding to the given dictionary
+        """
         return ScheduledAction(
             action=Action.from_dict(d["action"]),
             duration_sec=d["duration_sec"],
@@ -34,12 +95,48 @@ class ScheduledAction:
 
 @dataclass
 class SceneActor:
+    """
+    A class to represent an actor in a scene.
+
+    Attributes
+    ----------
+    actor : Actor
+        the actor represented in the scene
+    start_x : int
+        the starting coordinates of the actor on the x axis
+    start_y : int
+        the starting coordinates of the actor on the y axis
+    scheduled_actions : list[ScheduledActions] (default [])
+        the actions to be executed by the actor
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the SceneActor object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates a SceneActor object using the data stored in a dictionary.
+    """
     actor: Actor
     start_x: int
     start_y: int
     scheduled_actions: list[ScheduledAction] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """
+        Creates a dictionary representing the SceneActor object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the SceneActor object
+        """
         return {
             "actor": self.actor.to_dict(),
             "start_x": self.start_x,
@@ -49,6 +146,19 @@ class SceneActor:
     
     @staticmethod
     def from_dict(d: dict) -> "SceneActor":
+        """
+        Creates a SceneActor object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the SceneActor object creation
+
+        Returns
+        -------
+        SceneActor
+            the SceneActor object corresponding to the given dictionary
+        """
         return SceneActor(
             actor=Actor.from_dict(d["actor"]),
             start_x=d["start_x"],
@@ -62,12 +172,48 @@ class SceneActor:
 
 @dataclass
 class CameraMove:
+    """
+    A class to represent a camera move during a scene.
+
+    Attributes
+    ----------
+    x : int (default 0)
+        the amount of pixels moved horizontally if no actor is linked
+    y : int (default 0)
+        the amount of pixels moved vertically if no actor is linked
+    linked_sa : SceneActor | None (default None)
+        the optional actor to follow
+    duration_sec : float (default 1.0)
+        the duration in seconds of the camera move
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the CameraMove object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates a CameraMove object using the data stored in a dictionary.
+    """
     x: int = 0
     y: int = 0
     linked_sa: Optional[SceneActor] = None
     duration_sec: float = 1.0
 
     def to_dict(self) -> str:
+        """
+        Creates a dictionary representing the CameraMove object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the CameraMove object
+        """
         return {
             "x": self.x,
             "y": self.y,
@@ -77,6 +223,19 @@ class CameraMove:
     
     @staticmethod
     def from_dict(d: dict) -> "CameraMove":
+        """
+        Creates a CameraMove object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the CameraMove object creation
+
+        Returns
+        -------
+        CameraMove
+            the CameraMove object corresponding to the given dictionary
+        """
         dict_sa = d.get("linked_sa", None)
         return CameraMove(
             x=d.get("x", 0),
@@ -88,6 +247,32 @@ class CameraMove:
 
 @dataclass
 class Camera:
+    """
+    A class to represent the camera used in a scene.
+
+    Attributes
+    ----------
+    width : int (default 816)
+        the width of the camera in pixels
+    height : int (default 624)
+        the height of the camera in pixels
+    start_x : int (default 0)
+        the starting x coordinate of the center of the camera
+    start_y : int (default 0)
+        the starting y coordinate of the center of the camera
+    moves : list[CameraMove] (default [])
+        the list of moves done by the camera during a scene
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the Camera object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates a Camera object using the data stored in a dictionary.
+    """
     width: int = 816
     height: int = 624
     start_x: int = 0
@@ -95,6 +280,18 @@ class Camera:
     moves: list[CameraMove] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """
+        Creates a dictionary representing the Camera object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the Camera object
+        """
         return {
             "width": self.width,
             "height": self.height,
@@ -105,6 +302,19 @@ class Camera:
     
     @staticmethod
     def from_dict(d: dict) -> "Camera":
+        """
+        Creates a Camera object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the Camera object creation
+
+        Returns
+        -------
+        Camera
+            the Camera object corresponding to the given dictionary
+        """
         return Camera(
             width=d.get("width", 816),
             height=d.get("height", 624),
@@ -119,6 +329,32 @@ class Camera:
 
 @dataclass
 class Scene:
+    """
+    A class to represent a scene.
+
+    Attributes
+    ----------
+    name : str
+        the name of the scene
+    background : PIL.Image.Image | None (default None)
+        the optional background used during the scene
+    duration_sec : float (default 5.0)
+        the duration of the scene in seconds
+    actors : list[SceneActor] (default [])
+        the actors used in the scene
+    camera : Camera (default Camera())
+        the camera used in the scene
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the Scene object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates a Scene object using the data stored in a dictionary.
+    """
     name: str
     background: Optional[Image] = None
     duration_sec: float = 5.0
@@ -126,6 +362,18 @@ class Scene:
     camera: Camera = field(default_factory=Camera)
 
     def to_dict(self) -> dict:
+        """
+        Creates a dictionary representing the Scene object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the Scene object
+        """
         buffer = io.BytesIO()
         if self.background is not None:
             self.background.save(buffer, format="PNG")
@@ -139,6 +387,19 @@ class Scene:
 
     @staticmethod
     def from_dict(d: dict) -> "Scene":
+        """
+        Creates a Scene object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the Scene object creation
+
+        Returns
+        -------
+        Scene
+            the Scene object corresponding to the given dictionary
+        """
         background_bytes = d.get("background", None)
         decoded_background = base64.b64decode(background_bytes) if background_bytes else None
         scene = Scene(
@@ -152,6 +413,7 @@ class Scene:
             camera=Camera.from_dict(d.get("camera", {})),
         )
 
+        # Replace camera moves linked to scene actors with instance refs instead of copies
         actors_str = [str(actor.to_dict()) for actor in scene.actors]
 
         for i in range(len(scene.camera.moves)):

@@ -1,3 +1,13 @@
+"""
+Defines classes used to represent actors.
+
+Classes
+-------
+Action
+ActionComponent
+Actor
+"""
+
 import base64
 import io
 from dataclasses import dataclass, field
@@ -6,13 +16,49 @@ from PIL import Image
 
 @dataclass
 class ActionComponent:
-    sprite: Image
+    """
+    A class to represent a component of an action.
+
+    Attributes
+    ----------
+    sprite : PIL.Image.Image
+        the sprite used during the action component
+    duration_sec : float
+        the duration of the action component in seconds
+    x_offset : int
+        the amount of pixels moved horizontally during the action component
+    y_offset : int
+        the amount of pixels moved vertically during the action component
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the ActionComponent object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates an ActionComponent object using the data stored in a dictionary.
+    """
+    sprite: Image.Image
     duration_sec: float
     x_offset: int
     y_offset: int
 
     def to_dict(self) -> dict:
-        buffer = io.BytesIO()
+        """
+        Creates a dictionary representing the ActionComponent object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the ActionComponent object
+        """
+        buffer: io.BytesIO = io.BytesIO()
         self.sprite.save(buffer, format="PNG")
         return {
             "sprite": base64.b64encode(buffer.getvalue()).decode("utf-8"),
@@ -23,7 +69,20 @@ class ActionComponent:
     
     @staticmethod
     def from_dict(d: dict) -> "ActionComponent":
-        sprite_data = base64.b64decode(d["sprite"])
+        """
+        Creates an ActionComponent object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the ActionComponent object creation
+
+        Returns
+        -------
+        ActionComponent
+            the ActionComponent object corresponding to the given dictionary
+        """
+        sprite_data: bytes = base64.b64decode(d["sprite"])
         return ActionComponent(
             sprite=Image.open(io.BytesIO(sprite_data)),
             duration_sec=d["duration_sec"],
@@ -34,10 +93,42 @@ class ActionComponent:
 
 @dataclass
 class Action:
+    """
+    A class to represent an action.
+
+    Attributes
+    ----------
+    name : str
+        the name of the action
+    components : list[ActionComponent] (default [])
+        the components if the action
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the Action object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates an Action object using the data stored in a dictionary.
+    """
     name: str
     components: list[ActionComponent] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """
+        Creates a dictionary representing the Action object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the Action object
+        """
         return {
             "name": self.name,
             "components": [comp.to_dict() for comp in self.components],
@@ -45,6 +136,19 @@ class Action:
     
     @staticmethod
     def from_dict(d: dict) -> "Action":
+        """
+        Creates an Action object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the Action object creation
+
+        Returns
+        -------
+        Action
+            the Action object corresponding to the given dictionary
+        """
         return Action(
             name=d["name"],
             components=[
@@ -56,10 +160,42 @@ class Action:
 
 @dataclass
 class Actor:
+    """
+    A class to represent an actor.
+
+    Attributes
+    ----------
+    name : str
+        the name of the actor
+    actions : list[Action] (default [])
+        the actions available to the actor
+
+    Methods
+    -------
+    to_dict():
+        Creates a dictionary representing the Actor object.
+
+    Static Methods
+    --------------
+    from_dict(d):
+        Creates an Actor object using the data stored in a dictionary.
+    """
     name: str
     actions: list[Action] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """
+        Creates a dictionary representing the Actor object.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            the dictionary representing the Actor object
+        """
         return {
             "name": self.name,
             "actions": [act.to_dict() for act in self.actions],
@@ -67,6 +203,19 @@ class Actor:
     
     @staticmethod
     def from_dict(d: dict) -> "Actor":
+        """
+        Creates an Actor object using the data stored in a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            data to use for the Actor object creation
+
+        Returns
+        -------
+        Actor
+            the Actor object corresponding to the given dictionary
+        """
         return Actor(
             name=d["name"],
             actions=[
