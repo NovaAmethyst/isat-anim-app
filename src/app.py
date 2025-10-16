@@ -1,10 +1,11 @@
 import json
 import tkinter as tk
-from PIL import ImageTk
-from tkinter import messagebox, ttk
+from PIL import Image, ImageTk
+from tkinter import filedialog, messagebox, ttk
 from typing import Optional
 
 from src.data_models import *
+from src.utils.anims import *
 from src.widgets import *
 from src.widgets.utils import create_renaming_entry
 
@@ -98,6 +99,7 @@ class AnimationEditorApp(tk.Tk):
             buttons_info=[
                 {"text": "Add Action", "command": self.add_action},
                 {"text": "Delete Action", "command": self.delete_action},
+                {"text": "Preview Action", "command": self.preview_action},
             ],
             btns_per_row=3,
             select_func=self.select_action,
@@ -307,6 +309,45 @@ class AnimationEditorApp(tk.Tk):
         old_name = actor.actions[action_idx].name
         create_renaming_entry(listbox, actor_idx, old_name, save_action_name)
 
+    def preview_action(self):
+        if self.curr_actor_idx is None or self.curr_action_idx is None:
+            return
+        actor = self.actors[self.curr_actor_idx]
+        action = actor.actions[self.curr_action_idx]
+
+        frames = get_action_frames(action=action, fps=60)
+        x = frames["dx"].cumsum()
+        y = frames["dy"].cumsum()
+        sprites_width = [frame.size[0] for frame in frames["sprites"]]
+        sprites_height = [frame.size[1] for frame in frames["sprites"]]
+
+        x_min, x_max = x.min(), x.max()
+        y_min, y_max = y.min(), y.max()
+        max_width, max_height = max(sprites_width), max(sprites_height)
+        bg_w = x_max - x_min + max_width
+        bg_h = y_max - y_min + max_height
+        x0 = max_width // 2 - x_min
+        y0 = max_height // 2 + y_max
+
+        background = Image.new("RGBA", (bg_w, bg_h), (0, 0, 0, 0))
+
+        action_frames = []
+        for i in range(len(sprites_width)):
+            action_frame = background.copy()
+            sprite = frames["sprites"][i]
+            sw, sh = sprite.size
+            action_frame.paste(
+                sprite, (x0 + x[i] - sw // 2, y0 - y[i] - sh // 2), mask=sprite,
+            )
+            action_frames.append(ImageTk.PhotoImage(action_frame))
+
+        AnimationPopup(
+            self,
+            action_frames,
+            60,
+            f"{action.name} Action Preview",
+        )
+
     def clean_component(self):
         self.comp_listbox.select_clear()
         self.curr_comp_idx = None
@@ -469,6 +510,8 @@ class AnimationEditorApp(tk.Tk):
         name_save_frame.pack(side="top", fill="x")
         self.scene_name_label = tk.Label(name_save_frame, text="")
         self.scene_name_label.pack(side="left", fill="x")
+        tk.Button(name_save_frame, text="Preview", command=self.preview_scene).pack(side="right", padx=2)
+        tk.Button(name_save_frame, text="Export", command=self.export_scene).pack(side="right", padx=2)
         tk.Button(name_save_frame, text="Save As", command=self.save_scene_as).pack(side="right", padx=2)
         tk.Button(name_save_frame, text="Save", command=self.save_scene).pack(side="right", padx=2)
 
@@ -714,6 +757,68 @@ class AnimationEditorApp(tk.Tk):
         scene_idx = self.curr_scene_idx
         old_name = self.scenes[scene_idx].name
         create_renaming_entry(listbox, scene_idx, old_name, save_scene_name)
+
+    def get_scene_frames(self) -> list[np.array] | None:
+        if self.curr_scene_idx is None:
+            return None
+        scene_idx = self.curr_scene_idx
+        scene = self.scenes[scene_idx]
+
+        if scene.background is None:
+            messagebox.showinfo(
+                "No background",
+                "A background is needed to preview a scene."
+            )
+            return None
+
+        fps = 60
+        n_frames = int(scene.duration_sec * fps)
+        actor_frames = {}
+
+        for sa in scene.actors:
+            sa_frames = get_scene_actor_frames(sa, n_frames, fps)
+            actor_frames[str(sa)] = sa_frames
+
+        cam_pos = get_camera_pos(scene.camera, actor_frames, n_frames, fps)
+        scene_frames = compose_frames(
+            scene.background, actor_frames, cam_pos, scene.actors, scene.camera, n_frames
+        )
+        return scene_frames
+
+    def preview_scene(self):
+        frames_arr = self.get_scene_frames()
+        if frames_arr is None:
+            return
+        scene = self.scenes[self.curr_scene_idx]
+        frames = [
+            ImageTk.PhotoImage(
+                Image.fromarray(frame, mode="RGBA")
+            )
+            for frame in frames_arr
+        ]
+
+        AnimationPopup(
+            self,
+            frames,
+            60,
+            f"{scene.name} Action Preview",
+        )
+
+    def export_scene(self):
+        frames_arr = self.get_scene_frames()
+        if frames_arr is None:
+            return
+        scene = self.scenes[self.curr_scene_idx]
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".mp4",
+            filetypes=[("MP4 Files", "*.mp4")],
+            initialfile=scene.name.replace(' ', '_').lower()
+        )
+        if not path:
+            return
+        make_video_from_frames(frames_arr, 60, path)
+        messagebox.showinfo(message="File saved!")
 
     def update_scene(self):
         if self.curr_scene_idx is None:
