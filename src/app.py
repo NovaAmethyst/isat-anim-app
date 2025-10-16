@@ -318,7 +318,7 @@ class AnimationEditorApp(tk.Tk):
         self.curr_comp_idx = component_idx
         self.comp_listbox.select(component_idx)
 
-    def add_or_edit_component(self, new):
+    def add_or_edit_component(self, new: bool):
         if self.curr_actor_idx is None or self.curr_action_idx is None:
             return
 
@@ -335,39 +335,31 @@ class AnimationEditorApp(tk.Tk):
             idx = self.curr_comp_idx
             comp = action.components[idx]
 
-        window_type = "Add" if new else "Edit"
+        def get_popup_content(popup) -> tuple[dict, list[str]]:
+            entries = {
+                "sprite": ImageFileEntry(
+                    popup, "Sprite", default = comp.sprite if comp else None,
+                ),
+                "duration": FloatEntryFrame(
+                    popup, "Duration (s)", comp.duration_sec if comp else 1.0,
+                ),
+                "x_offset": IntEntryFrame(
+                    popup, "X Offset", comp.x_offset if comp else 0,
+                ),
+                "y_offset": IntEntryFrame(
+                    popup, "Y Offset", comp.y_offset if comp else 0,
+                ),
+            }
+            return entries, ["sprite", "duration", "x_offset", "y_offset"]
 
-        popup = tk.Toplevel(self)
-        popup.title(f"{window_type} Action Component")
-
-        sprite_entry = ImageFileEntry(
-            popup, "Sprite", default = comp.sprite if comp else None,
-        )
-        sprite_entry.pack(side="top", fill="x", pady=1)
-
-        duration_entry = FloatEntryFrame(
-            popup, "Duration (s)", comp.duration_sec if comp else 1.0,
-        )
-        duration_entry.pack(side="top", fill="x", pady=1)
-
-        x_off_entry = IntEntryFrame(
-            popup, "X Offset", comp.x_offset if comp else 0,
-        )
-        x_off_entry.pack(side="top", fill="x", pady=1)
-
-        y_off_entry = IntEntryFrame(
-            popup, "Y Offset", comp.y_offset if comp else 0,
-        )
-        y_off_entry.pack(side="top", fill="x", pady=1)
-
-        def save_component():
-            sprite = sprite_entry.get()
-            duration = duration_entry.get()
-            x_off = x_off_entry.get()
-            y_off = y_off_entry.get()
+        def save_component(entries) -> bool:
+            sprite = entries["sprite"].get()
+            duration = entries["duration"].get()
+            x_off = entries["x_offset"].get()
+            y_off = entries["y_offset"].get()
 
             if sprite is None or duration is None or x_off is None or y_off is None:
-                return
+                return False
 
             new_comp = ActionComponent(
                 sprite=sprite,
@@ -380,12 +372,12 @@ class AnimationEditorApp(tk.Tk):
             else:
                 action.components[idx] = new_comp
 
-            popup.destroy()
             self.unsaved_actor(actor_idx)
             self.set_action(action_idx)
             self.set_component(idx)
+            return True
 
-        tk.Button(popup, text=window_type, command=save_component).pack(pady=10)
+        create_add_edit_popup(self, "Action Component", new, get_popup_content, save_component)
 
     def delete_component(self):
         if self.curr_actor_idx is None or self.curr_action_idx is None or self.curr_comp_idx is None:
@@ -794,55 +786,49 @@ class AnimationEditorApp(tk.Tk):
                 return
             idx = self.curr_cam_move_idx
             cam_move = cam.moves[idx]
-        window_type = "Add" if new else "Edit"
-
-        popup = tk.Toplevel(self)
-        popup.title(f"{window_type} Camera Movement")
-
-        toggle = ToggleFrame(
-            parent=popup,
-            toggle_label="Is linked",
-            toggle_default=(cam_move.linked_sa is not None) if cam_move else False,
-        )
-        toggle.pack(side="top", fill="x", pady=1)
-        false_frame = toggle.frame_false
-        true_frame = toggle.frame_true
 
         actor_names = [sa.actor.name for sa in scene.actors]
-        linked_actor_entry = DropdownEntry(
-            parent=true_frame,
-            label="Linked Actor",
-            options=actor_names,
-            default=cam_move.linked_sa.actor.name if (cam_move and cam_move.linked_sa) else None,
-        )
-        linked_actor_entry.pack(side="top", fill="x", pady=1)
 
-        x_coord_entry = IntEntryFrame(false_frame, "X Offset", cam_move.x if cam_move else 0)
-        x_coord_entry.pack(side="top", fill="x", pady=1)
+        def get_popup_content(popup) -> tuple[dict, list[str]]:
+            toggle = ToggleFrame(
+                parent=popup,
+                toggle_label="Is linked",
+                toggle_default=(cam_move.linked_sa is not None) if cam_move else False,
+            )
+            false_frame = toggle.frame_false
+            true_frame = toggle.frame_true
 
-        y_coord_entry = IntEntryFrame(false_frame, "Y Offset", cam_move.y if cam_move else 0)
-        y_coord_entry.pack(side="top", fill="x", pady=1)
+            entries = {
+                "toggle": toggle,
+                "linked_actor": DropdownEntry(
+                    parent=true_frame,
+                    label="Linked Actor",
+                    options=actor_names,
+                    default=cam_move.linked_sa.actor.name if (cam_move and cam_move.linked_sa) else None,
+                ),
+                "x_coord": IntEntryFrame(false_frame, "X Offset", cam_move.x if cam_move else 0),
+                "y_coord": IntEntryFrame(false_frame, "Y Offset", cam_move.y if cam_move else 0),
+                "duration": FloatEntryFrame(popup, "Duration (s)", cam_move.duration_sec if cam_move else 1.0),
+            }
+            return entries, ["toggle", "linked_actor", "x_coord", "y_coord", "duration"]
 
-        duration_entry = FloatEntryFrame(popup, "Duration (s)", cam_move.duration_sec if cam_move else 1.0)
-        duration_entry.pack(side="top", fill="x", pady=1)
-
-        def save_and_close():
-            duration = duration_entry.get()
+        def save_cam_move(entries) -> bool:
+            duration = entries["duration"].get()
             if duration is None:
-                return
+                return False
 
-            if toggle.get():
-                actor_name = linked_actor_entry.get()
+            if entries["toggle"].get():
+                actor_name = entries["linked_actor"].get()
                 if actor_name is None:
-                    return
+                    return False
                 actor_idx = actor_names.index(actor_name)
                 actor = scene.actors[actor_idx]
                 new_cam_move = CameraMove(linked_sa=actor, duration_sec=duration)
             else:
-                x = x_coord_entry.get()
-                y = y_coord_entry.get()
+                x = entries["x_coord"].get()
+                y = entries["y_coord"].get()
                 if x is None or y is None:
-                    return
+                    return False
                 new_cam_move = CameraMove(x=x, y=y, duration_sec=duration)
 
             if new:
@@ -853,9 +839,9 @@ class AnimationEditorApp(tk.Tk):
             self.unsaved_scene(scene_idx)
             self.set_scene(scene_idx)
             self.set_cam_move(idx)
-            popup.destroy()
+            return True
 
-        tk.Button(popup, text=window_type, command=save_and_close).pack(pady=10)
+        create_add_edit_popup(self, "Camera Movement", new, get_popup_content, save_cam_move)
 
     def delete_camera_move(self):
         if self.curr_scene_idx is None or self.curr_cam_move_idx is None:
@@ -1027,71 +1013,65 @@ class AnimationEditorApp(tk.Tk):
                 return
             idx = self.curr_sched_idx
             sched = sa.scheduled_actions[idx]
-        window_type = "Add" if new else "Edit"
-
-        popup = tk.Toplevel(self)
-        popup.title(f"{window_type} Scheduled Action")
-
-        toggle = ToggleFrame(
-            parent=popup,
-            toggle_label="Is Idle",
-            toggle_default=sched.action.name == "Idle" if sched else False,
-        )
-        toggle.pack(side="top", fill="x", pady=1)
-        false_frame = toggle.frame_false
-        true_frame = toggle.frame_true
-
-        idle_sprite_var = ImageFileEntry(
-            parent=true_frame,
-            label="Sprite",
-            default=sched.action.components[0].sprite if sched and sched.action.name == "Idle" else None,
-        )
-        idle_sprite_var.pack(side="top", fill="x", pady=1)
 
         action_names = [action.name for action in sa.actor.actions]
-        action_name_entry = DropdownEntry(
-            parent=false_frame,
-            label="Action",
-            options=action_names,
-            default=sched.action.name if sched else None,
-        )
-        action_name_entry.pack(side="top", fill="x", pady=1)
 
-        duration_entry = FloatEntryFrame(
-            parent=popup,
-            label="Duration (s)",
-            default=sched.duration_sec if sched else 1.0,
-        )
-        duration_entry.pack(side="top", fill="x", pady=1)
+        def get_popup_content(popup) -> tuple[dict, list[str]]:
+            toggle = ToggleFrame(
+                parent=popup,
+                toggle_label="Is Idle",
+                toggle_default=sched.action.name == "Idle" if sched else False,
+            )
+            false_frame = toggle.frame_false
+            true_frame = toggle.frame_true
+            is_visible_var = tk.BooleanVar(value=sched.is_visible if sched else True)
 
-        start_offset_entry = FloatEntryFrame(
-            parent=popup,
-            label="Start Offset (s):",
-            default=sched.start_offset_sec if sched else 0.0,
-        )
-        start_offset_entry.pack(side="top", fill="x", pady=1)
+            entries = {
+                "toggle": toggle,
+                "idle_sprite": ImageFileEntry(
+                    parent=true_frame,
+                    label="Sprite",
+                    default=sched.action.components[0].sprite if sched and sched.action.name == "Idle" else None,
+                ),
+                "action_name": DropdownEntry(
+                    parent=false_frame,
+                    label="Action",
+                    options=action_names,
+                    default=sched.action.name if sched else None,
+                ),
+                "duration": FloatEntryFrame(
+                    parent=popup,
+                    label="Duration (s)",
+                    default=sched.duration_sec if sched else 1.0,
+                ),
+                "start_offset": FloatEntryFrame(
+                    parent=popup,
+                    label="Start Offset (s):",
+                    default=sched.start_offset_sec if sched else 0.0,
+                ),
+                "is_visible": is_visible_var,
+                "visible_check": ttk.Checkbutton(
+                    popup, text="Is Visible", variable=is_visible_var, onvalue=True, offvalue=False,
+                ),
+            }
+            return entries, ["toggle", "idle_sprite", "action_name", "duration", "start_offset", "visible_check"]
 
-        is_visible_var = tk.BooleanVar(value=sched.is_visible if sched else True)
-        ttk.Checkbutton(
-            popup, text="Is Visible", variable=is_visible_var, onvalue=True, offvalue=False,
-        ).pack(side="top", anchor="w", pady=1)
-
-        def save_and_close():
-            duration = duration_entry.get()
-            start_offset = start_offset_entry.get()
-            is_visible = is_visible_var.get()
+        def save_sched(entries) -> bool:
+            duration = entries["duration"].get()
+            start_offset = entries["start_offset"].get()
+            is_visible = entries["is_visible"].get()
             if duration is None or start_offset is None or is_visible is None:
-                return
+                return False
 
-            if toggle.get():
-                idle_sprite = idle_sprite_var.get()
+            if entries["toggle"].get():
+                idle_sprite = entries["idle_sprite"].get()
                 if idle_sprite is None:
-                    return
+                    return False
                 action = Action("Idle", components=[ActionComponent(idle_sprite, 1.0, 0, 0)])
             else:
-                action_name = action_name_entry.get()
+                action_name = entries["action_name"].get()
                 if action_name is None:
-                    return
+                    return False
                 action_idx = action_names.index(action_name)
                 action = sa.actor.actions[action_idx]
 
@@ -1109,9 +1089,9 @@ class AnimationEditorApp(tk.Tk):
             self.unsaved_scene(scene_idx)
             self.set_scene_actor(sa_idx)
             self.set_scheduled_action(idx)
-            popup.destroy()
+            return True
 
-        tk.Button(popup, text=window_type, command=save_and_close).pack(pady=10)
+        create_add_edit_popup(self, "Scheduled Action", new, get_popup_content, save_sched)
 
     def delete_scheduled_action(self):
         if self.curr_scene_idx is None or self.curr_sa_idx is None or self.curr_sched_idx is None:

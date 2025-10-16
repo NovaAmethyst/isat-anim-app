@@ -1,6 +1,6 @@
 import tkinter as tk
 from PIL import Image
-from tkinter import filedialog, messagebox
+from tkinter import messagebox
 from typing import Optional
 
 from src.widgets.image_frame import ImageFrame
