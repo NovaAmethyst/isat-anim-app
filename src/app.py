@@ -111,7 +111,7 @@ class AnimationEditorApp(tk.Tk):
 
         # Create scene and actor tabs
         self.create_tabs()
-    
+
     def create_tabs(self) -> None:
         """Creates and sets up the actors/scenes tab system."""
         # Create the tab system
@@ -141,7 +141,28 @@ class AnimationEditorApp(tk.Tk):
         tab_notebook.bind(
             "<<NotebookTabChanged>>", on_tab_change,
         )
-    
+
+    def _check_name_duplicate(self, name: str, obj_list: list[Actor] | list[Action] | list[Scene]) -> int | None:
+        """
+        Checks whether the given name is already a name in the given list.
+
+        Parameters
+        ----------
+        name : str
+            the name to check for duplicates in the list
+        obj_list : list[Actor] | list[Action] | list[Scene]
+            the list of objects used for the duplicate check
+
+        Returns
+        -------
+        int | None
+            the index of the object with the duplicated name
+        """
+        name_list: list[str] = [obj.name for obj in obj_list]
+        if name in name_list:
+            return name_list.index(name)
+        return None
+
     def init_actor_tab(self) -> None:
         """Sets up all widgets and events for the Actors tab."""
         # Left: actor list
@@ -326,7 +347,7 @@ class AnimationEditorApp(tk.Tk):
         # Set the right displays
         self.set_actor_list()
         self.set_actor(idx)
-    
+
     def add_actor(self) -> None:
         """Creates a new actor in the actor list."""
         # Find a non pre-existing actor name
@@ -338,7 +359,7 @@ class AnimationEditorApp(tk.Tk):
         # Add new actor to the actor list
         actor: Actor = Actor(name=f"Actor {i}")
         self._add_or_replace_actor(actor)
-    
+
     def open_actor(self) -> None:
         """Asks user for an actor file to open in the actor list."""
         # Ask for and open file
@@ -349,10 +370,20 @@ class AnimationEditorApp(tk.Tk):
 
         # Create the opened actor
         actor: Actor = Actor.from_dict(data)
-        # TODO add checks and behaviour for opening actor with pre-existing name in register
+        # Check if actor name already in use
+        dup_idx: int | None = self._check_name_duplicate(actor.name, self.actors)
+        if dup_idx is not None:
+            # Ask for user confirmation to override existing actor in actors tab
+            dup_unsaved_str: str = "" if self.actors_save_status[dup_idx][0] else "unsaved "
+            answer: bool = messagebox.askokcancel(
+                "Override Actor",
+                f"An {dup_unsaved_str}actor named '{actor.name}' already exists. Override it?"
+            )
+            if not answer:
+                return
         # Add opened actor to the actor list
-        self._add_or_replace_actor(actor, path=path)
-    
+        self._add_or_replace_actor(actor, path=path, idx=dup_idx)
+
     def delete_actor(self) -> None:
         """Removes the selected actor from the actor list."""
         # Skip if no actor is selected
@@ -395,7 +426,7 @@ class AnimationEditorApp(tk.Tk):
         # Change actor display only on index change
         if idx and idx[0] != self.curr_actor_idx:
             self.set_actor(idx[0])
-    
+
     def rename_actor(self, event: tk.Event, listbox: tk.Listbox) -> None:
         """
         Creates a tkinter entry to rename the selected actor.
@@ -417,6 +448,14 @@ class AnimationEditorApp(tk.Tk):
 
         # Function to update the name of a given actor
         def save_actor_name(idx: int, name: str) -> None:
+            # Warn user and cancel renaming if name is a duplicate
+            if self._check_name_duplicate(name, self.actors) is not None:
+                messagebox.showinfo(
+                    "Renaming cancelled",
+                    f"Can't rename the actor as '{name}' because another actor with this name exists."
+                )
+                return
+            # Update the actor's name
             self.actors[idx].name = name
             self.unsaved_actor(idx)
             self.set_actor(idx)
@@ -555,6 +594,14 @@ class AnimationEditorApp(tk.Tk):
 
         # Function to update the name of a given action
         def save_action_name(idx: int, name: str):
+            # Warn user and cancel renaming if name is a duplicate
+            if self._check_name_duplicate(name, actor.actions) is not None:
+                messagebox.showinfo(
+                    "Renaming cancelled",
+                    f"Can't rename the action as '{name}' because another action with this name exists."
+                )
+                return
+            # Update the action's name
             actor.actions[idx].name = name
             self.unsaved_actor(actor_idx)
             self.set_actor(actor_idx)
@@ -563,7 +610,7 @@ class AnimationEditorApp(tk.Tk):
         # Create rename entry associated with name update function
         action_idx: int = self.curr_action_idx
         old_name: str = actor.actions[action_idx].name
-        create_renaming_entry(listbox, actor_idx, old_name, save_action_name)
+        create_renaming_entry(listbox, action_idx, old_name, save_action_name)
 
     def preview_action(self) -> None:
         """Shows a preview of the selected action in a popup."""
@@ -1075,6 +1122,39 @@ class AnimationEditorApp(tk.Tk):
         # Change selected scene in listbox
         self.scene_listbox.select(scene_idx)
 
+    def _add_or_replace_scene(self, scene: Scene, path: str | None = None, idx: int | None = None) -> None:
+        """
+        Either adds an actor at the end of the list or replaces the one at the given index with it.
+
+        Parameters
+        ----------
+        scene : Scene
+            the scene to place in the scenes list
+        path : str | None
+            the optional path the scene was saved in
+        idx : int | None
+            the index of the scene to replace
+
+        Returns
+        -------
+        None
+        """
+        # Set the scene's save status
+        save_status: tuple[bool, str] = (path is not None, path)
+        if idx is None:
+            # Insert scene if no index is given
+            idx = len(self.scenes)
+            self.scenes.append(scene)
+            self.scenes_save_status.append(save_status)
+        else:
+            # Replace an scene if an index is given
+            self.scenes[idx] = scene
+            self.scenes_save_status[idx] = save_status
+
+        # Set the right displays
+        self.set_scene_list()
+        self.set_scene(idx)
+
     def add_scene(self) -> None:
         """Creates a new scene in the scene list."""
         # Find an unused scene name
@@ -1084,12 +1164,8 @@ class AnimationEditorApp(tk.Tk):
             i += 1
         # Create and add scene to list
         scene: Scene = Scene(name=f"Scene {i}")
-        self.scenes.append(scene)
-        self.scenes_save_status.append((False, None))
-
-        # Change displays accordingly
-        self.set_scene_list()
-        self.set_scene(len(self.scenes) - 1)
+        # Add new scene to the scene list
+        self._add_or_replace_scene(scene)
 
     def open_scene(self) -> None:
         """Asks user for a scene file to open in the scene list."""
@@ -1102,13 +1178,19 @@ class AnimationEditorApp(tk.Tk):
         # Create a scene from saved data
         scene: Scene = Scene.from_dict(data)
 
-        # Add the scene to the list
-        self.scenes.append(scene)
-        self.scenes_save_status.append((True, path))
-
-        # Update displays
-        self.set_scene_list()
-        self.set_scene(len(self.scenes) - 1)
+        # Check if scene name already in use
+        dup_idx: int | None = self._check_name_duplicate(scene.name, self.scenes)
+        if dup_idx is not None:
+            # Ask for user confirmation to override existing scene in scenes tab
+            dup_unsaved_str: str = "" if self.scenes_save_status[dup_idx][0] else "n unsaved"
+            answer: bool = messagebox.askokcancel(
+                "Override Scene",
+                f"A{dup_unsaved_str} scene named '{scene.name}' already exists. Override it?"
+            )
+            if not answer:
+                return
+        # Add opened scene to the scene list
+        self._add_or_replace_scene(scene, path=path, idx=dup_idx)
 
     def delete_scene(self) -> None:
         """Removes the selected scene from the scene list."""
@@ -1172,6 +1254,14 @@ class AnimationEditorApp(tk.Tk):
 
         # Function to save the new scene name
         def save_scene_name(idx: int, name: str) -> None:
+            # Warn user and cancel renaming if name is a duplicate
+            if self._check_name_duplicate(name, self.scenes) is not None:
+                messagebox.showinfo(
+                    "Renaming cancelled",
+                    f"Can't rename the scene as '{name}' because another scene with this name exists."
+                )
+                return
+            # Update the scene's name
             self.scenes[idx].name = name
             self.unsaved_scene(idx)
             self.set_scene(idx)
