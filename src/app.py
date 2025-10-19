@@ -241,10 +241,20 @@ class AnimationEditorApp(tk.Tk):
         -------
         None
         """
+        # Change actor save status and displays
         self.actors_save_status[actor_idx] = (
             False, self.actors_save_status[actor_idx][1]
         )
         self.set_actor_list()
+
+        # Check whether the actor is in a scene
+        actor: Actor = self.actors[actor_idx]
+        for i in range(len(self.scenes)):
+            scene: Scene = self.scenes[i]
+            scene_actors: list[Actor] = [sa.actor for sa in scene.actors]
+            # If the changed actor is in a scene, change scene save status
+            if actor in scene_actors:
+                self.unsaved_scene(i)
 
     def clean_actor(self) -> None:
         """Resets displays and attributes present due to an actor being selected."""
