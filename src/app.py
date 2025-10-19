@@ -1648,6 +1648,26 @@ class AnimationEditorApp(tk.Tk):
         scene_idx: int = self.curr_scene_idx
         scene: Scene = self.scenes[scene_idx]
         sa_idx: int = self.curr_sa_idx
+        sa: SceneActor = scene.actors[sa_idx]
+
+        # Check whether the scene actor is linked to a camera movement
+        linked_actors: list[SceneActor] = [move.linked_sa for move in scene.camera.moves]
+        if sa in linked_actors:
+            # Ask user for deletion confirmation
+            answer: bool = messagebox.askokcancel(
+                "Confirmation",
+                """This actor is used for at least one camera movement.
+                Deleting it will remove all camera movements connected to the actor.
+                Delete anyway?"""
+            )
+            # Cancel if no confirmation
+            if not answer:
+                return
+            # Delete all camera movements using the scene actor
+            while sa in linked_actors:
+                move_idx: int = linked_actors.index(sa)
+                scene.camera.moves.pop(move_idx)
+                linked_actors.pop(move_idx)
 
         # Remove the actor from the list
         scene.actors.pop(sa_idx)
