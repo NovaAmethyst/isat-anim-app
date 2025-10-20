@@ -86,6 +86,8 @@ class AnimationEditorApp(tk.Tk):
         the save status and save file path of each scene
     sched_listbox : EditableTreeFrame
         the treeview to display scheduled actions
+    tab_notebook : ttk.Notebook
+        the notebook to handle the Actors and Scenes tabs
     """
     def __init__(self):
         """Setups the application."""
@@ -115,17 +117,17 @@ class AnimationEditorApp(tk.Tk):
     def create_tabs(self) -> None:
         """Creates and sets up the actors/scenes tab system."""
         # Create the tab system
-        tab_notebook: ttk.Notebook = ttk.Notebook(self)
-        tab_notebook.pack(fill="both", expand=True)
+        self.tab_notebook: ttk.Notebook = ttk.Notebook(self)
+        self.tab_notebook.pack(fill="both", expand=True)
 
         # Setup the Actors tab
-        self.actor_frame: tk.Frame = tk.Frame(tab_notebook)
-        tab_notebook.add(self.actor_frame, text="Actors")
+        self.actor_frame: tk.Frame = tk.Frame(self.tab_notebook)
+        self.tab_notebook.add(self.actor_frame, text="Actors")
         self.init_actor_tab()
 
         # Setup the Scenes tab
-        self.scene_frame: tk.Frame = tk.Frame(tab_notebook)
-        tab_notebook.add(self.scene_frame, text="Scenes")
+        self.scene_frame: tk.Frame = tk.Frame(self.tab_notebook)
+        self.tab_notebook.add(self.scene_frame, text="Scenes")
         self.init_scene_tab()
 
         # Define re-actualisation function for scene tab
@@ -138,7 +140,7 @@ class AnimationEditorApp(tk.Tk):
                 self.setup_scene_tab()
 
         # Bind scenes re-actualisation to tab change
-        tab_notebook.bind(
+        self.tab_notebook.bind(
             "<<NotebookTabChanged>>", on_tab_change,
         )
 
@@ -986,8 +988,9 @@ class AnimationEditorApp(tk.Tk):
                 {"text": "Delete Actor", "command": self.delete_scene_actor},
                 {"text": "Move Up", "command": lambda: self.move_scene_actor(-1)},
                 {"text": "Move Down", "command": lambda: self.move_scene_actor(1)},
+                {"text": "Open in 'Actors'", "command": self.open_in_actors},
             ],
-            btns_per_row=5,
+            btns_per_row=6,
             select_func=self.select_scene_actor,
         )
         self.sa_listbox.pack(side="top", fill="both", expand=True)
@@ -1824,6 +1827,46 @@ class AnimationEditorApp(tk.Tk):
         self.unsaved_scene(scene_idx)
         self.set_scene(scene_idx)
         self.set_scene_actor(n_idx, clean=False)
+
+    def open_in_actors(self) -> None:
+        """Opens the selected scene actor in the Actors tab"""
+        # Skip if no scene or scene actor is selected
+        if self.curr_scene_idx is None or self.curr_sa_idx is None:
+            return
+
+        # Get scene and scene actor
+        scene_idx: int = self.curr_scene_idx
+        scene: Scene = self.scenes[scene_idx]
+        sa_idx: int = self.curr_sa_idx
+        sa: SceneActor = scene.actors[sa_idx]
+
+        # Check if actor is in actor list
+        if sa.actor in self.actors:
+            # Switch to actors tab and select actor
+            actor_idx = self.actors.index(sa.actor)
+            self.tab_notebook.select(0)
+            self.tab_notebook.update()
+            self.tab_notebook.update_idletasks()
+            self.set_actor(actor_idx)
+            return
+
+        # Check for an action with a duplicate name
+        dup_idx: int | None = self._check_name_duplicate(sa.actor.name, self.actors)
+        if dup_idx is not None:
+            # Ask for user confirmation, cancel if no
+            unsaved_str: str = "" if self.actors_save_status[dup_idx][0] else " unsaved"
+            answer: bool = messagebox.askokcancel(
+                "Confirmation",
+                f"An{unsaved_str} actor named {sa.actor.name} already exists. Override it?"
+            )
+            if not answer:
+                return
+
+        # Switch to actors tab and select actor
+        self.tab_notebook.select(0)
+        self.tab_notebook.update()
+        self.tab_notebook.update_idletasks()
+        self._add_or_replace_actor(sa.actor, path=None, idx=dup_idx)
 
     def clean_scheduled_action(self) -> None:
         """Resets displays and attributes present due to a scheduled action being selected."""
