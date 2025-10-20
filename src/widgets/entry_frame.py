@@ -5,9 +5,10 @@ Classes
 -------
 BaseEntryFrame
 DropdownEntry
-FloatEntryFrame
 ImageFileEntry
 IntEntryFrame
+PositiveFloatEntryFrame
+UnsignedIntEntryFrame
 """
 
 import tkinter as tk
@@ -134,7 +135,7 @@ class IntEntryFrame(BaseEntryFrame):
         label : str
             the name of the variable
         default : int | None
-            the defautl value of the entry
+            the default value of the entry
         """
         super().__init__(
             parent=parent,
@@ -145,7 +146,54 @@ class IntEntryFrame(BaseEntryFrame):
         self.error_message = "should be a valid integer"
 
 
-class FloatEntryFrame(BaseEntryFrame):
+class UnsignedIntEntryFrame(IntEntryFrame):
+    def __init__(self, parent: tk.Misc, label: str, default: Optional[int] = None):
+        """
+        Constructs and packs all necessary attributes for an unsigned integer entry frame.
+
+        Parameters
+        ----------
+        parent : tk.Misc
+            the tkinter widget the frame will be placed in
+        label : str
+            the name of the variable
+        default : int | None
+            the default value of the entry
+        """
+        super().__init__(
+            parent=parent,
+            label=label,
+            default=default,
+        )
+
+        self.error_message = "should be a valid positive integer"
+
+    def get(self) -> Any | None:
+        """
+        Gets value stored in entry, sends warning if value in wrong format.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Any | None
+            the value stored in the entry if it is valid
+        """
+        val: Any | None = super().get()
+        if val is None:
+            return val
+        if val <= 0:
+            messagebox.showwarning(
+                "Erroneous variable",
+                f"The value '{self.label['text'][:-1]}' should be greater than 0."
+            )
+            return None
+        return val
+
+
+class PositiveFloatEntryFrame(BaseEntryFrame):
     """
     A class to handle user integer inputs.
 
@@ -186,7 +234,31 @@ class FloatEntryFrame(BaseEntryFrame):
             var_widget=tk.DoubleVar(value=default)
         )
 
-        self.error_message = "should be a valid real number"
+        self.error_message = "should be a valid positive real number"
+
+    def get(self) -> Any | None:
+        """
+        Gets value stored in entry, sends warning if value in wrong format.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        Any | None
+            the value stored in the entry if it is valid
+        """
+        val: Any | None = super().get()
+        if val is None:
+            return val
+        if val < 0.0:
+            messagebox.showwarning(
+                "Erroneous variable",
+                f"The value '{self.label['text'][:-1]}' should be greater than 0."
+            )
+            return None
+        return val
 
 
 class ImageFileEntry(tk.Frame):

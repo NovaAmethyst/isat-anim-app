@@ -40,7 +40,7 @@ class AnimationEditorApp(tk.Tk):
         the save status and save file path of each actor
     background_image : ImageFrame
         the frame to display the scene background
-    cam_height_entry : IntEntryFrame
+    cam_height_entry : UnsignedIntEntryFrame
         the entry to define the camera height
     cam_listbox : EditableTreeFrame
         the treeview to display camera movements
@@ -48,7 +48,7 @@ class AnimationEditorApp(tk.Tk):
         the entry to define the camera's starting x coordinate
     cam_start_y_entry : IntEntryFrame
         the entry to define the camera's starting y coordinate
-    cam_width_entry : IntEntryFrame
+    cam_width_entry : UnsignedIntEntryFrame
         the entry to define the camera width
     comp_listbox: EditableTreeFrame
         the list of action components of the selected action
@@ -727,7 +727,7 @@ class AnimationEditorApp(tk.Tk):
                 "sprite": ImageFileEntry(
                     popup, "Sprite", default = comp.sprite if comp else None,
                 ),
-                "duration": FloatEntryFrame(
+                "duration": PositiveFloatEntryFrame(
                     popup, "Duration (s)", comp.duration_sec if comp else 1.0,
                 ),
                 "x_offset": IntEntryFrame(
@@ -904,7 +904,7 @@ class AnimationEditorApp(tk.Tk):
 
         # Entries to edit global scene data (length)
         self.scene_setting_frame: tk.Frame = tk.Frame(scene_name_frame)
-        self.scene_len_entry: FloatEntryFrame = FloatEntryFrame(
+        self.scene_len_entry: PositiveFloatEntryFrame = PositiveFloatEntryFrame(
             parent=self.scene_setting_frame,
             label="Scene length (s)",
         )
@@ -936,9 +936,9 @@ class AnimationEditorApp(tk.Tk):
         # Global camera data
         global_cam_frame: tk.Frame = tk.Frame(camera_frame)
         global_cam_frame.pack(side="left", fill="both", expand=True)
-        self.cam_width_entry: IntEntryFrame = IntEntryFrame(global_cam_frame, "Camera Width")
+        self.cam_width_entry: UnsignedIntEntryFrame = UnsignedIntEntryFrame(global_cam_frame, "Camera Width")
         self.cam_width_entry.pack(side="top", fill="x", pady=2)
-        self.cam_height_entry: IntEntryFrame = IntEntryFrame(global_cam_frame, "Camera Height")
+        self.cam_height_entry: UnsignedIntEntryFrame = UnsignedIntEntryFrame(global_cam_frame, "Camera Height")
         self.cam_height_entry.pack(side="top", fill="x", pady=2)
         self.cam_start_x_entry: IntEntryFrame = IntEntryFrame(global_cam_frame, "Camera Start X")
         self.cam_start_x_entry.pack(side="top", fill="x", pady=2)
@@ -1511,7 +1511,7 @@ class AnimationEditorApp(tk.Tk):
                 ),
                 "x_coord": IntEntryFrame(false_frame, "X Offset", cam_move.x if cam_move else 0),
                 "y_coord": IntEntryFrame(false_frame, "Y Offset", cam_move.y if cam_move else 0),
-                "duration": FloatEntryFrame(popup, "Duration (s)", cam_move.duration_sec if cam_move else 1.0),
+                "duration": PositiveFloatEntryFrame(popup, "Duration (s)", cam_move.duration_sec if cam_move else 1.0),
             }
             return entries, ["toggle", "linked_actor", "x_coord", "y_coord", "duration"]
 
@@ -1910,12 +1910,12 @@ class AnimationEditorApp(tk.Tk):
                     options=action_names,
                     default=sched.action.name if sched else None,
                 ),
-                "duration": FloatEntryFrame(
+                "duration": PositiveFloatEntryFrame(
                     parent=popup,
                     label="Duration (s)",
                     default=sched.duration_sec if sched else 1.0,
                 ),
-                "start_offset": FloatEntryFrame(
+                "start_offset": PositiveFloatEntryFrame(
                     parent=popup,
                     label="Start Offset (s):",
                     default=sched.start_offset_sec if sched else 0.0,

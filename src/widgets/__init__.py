@@ -8,11 +8,12 @@ BaseEntryFrame
 DropdownEntry
 EditableListFrame
 EditableTreeFrame
-FloatEntryFrame
 ImageFileEntry
 ImageFrame
 IntEntryFrame
+PositiveFloatEntryFrame
 ToggleFrame
+UnsignedIntEntryFrame
 """
 
 from src.widgets.animation_popup import *
