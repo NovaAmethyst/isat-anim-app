@@ -223,13 +223,14 @@ class AnimationEditorApp(tk.Tk):
         def display_component(comp: ActionComponent) -> list[ImageTk.PhotoImage | str]:
             return [
                 ImageTk.PhotoImage(comp.sprite.resize((16, 16))),
+                comp.movement_speed if comp.movement_speed is not None else "",
                 str(comp.duration_sec),
                 f"({comp.x_offset},{comp.y_offset})",
             ]
 
         self.comp_listbox: EditableTreeFrame = EditableTreeFrame(
             parent=actor_detail_frame,
-            columns=["Sprite", "Duration (s)", "(x, y)"],
+            columns=["Sprite", "Movement Speed", "Duration (s)", "(x, y)"],
             display_func=display_component,
             buttons_info=[
                 {
@@ -725,41 +726,94 @@ class AnimationEditorApp(tk.Tk):
 
         # Function to create component popup
         def get_popup_content(popup) -> tuple[dict, list[str]]:
+            rpg_toggle: ToggleFrame = ToggleFrame(
+                parent=popup,
+                toggle_label="Use Movement Speed",
+                toggle_default=(comp.movement_speed is not None) if comp else True,
+            )
+            false_frame: tk.Frame = rpg_toggle.frame_false
+            true_frame: tk.Frame = rpg_toggle.frame_true
+
             entries: dict = {
                 "sprite": ImageFileEntry(
                     popup, "Sprite", default = comp.sprite if comp else None,
                 ),
+                "rpg_toggle": rpg_toggle,
                 "duration": PositiveFloatEntryFrame(
-                    popup, "Duration (s)", comp.duration_sec if comp else 1.0,
+                    false_frame, "Duration (s)", comp.duration_sec if comp else 1.0,
                 ),
                 "x_offset": IntEntryFrame(
-                    popup, "X Offset", comp.x_offset if comp else 0,
+                    false_frame, "X Offset", comp.x_offset if comp else 0,
                 ),
                 "y_offset": IntEntryFrame(
-                    popup, "Y Offset", comp.y_offset if comp else 0,
+                    false_frame, "Y Offset", comp.y_offset if comp else 0,
+                ),
+                "movement_speed": UnsignedIntEntryFrame(
+                    true_frame, "Movement Speed", comp.movement_speed if comp else 3,
+                ),
+                "direction": DropdownEntry(
+                    true_frame, "Direction", [dir.value for dir in Direction], comp.direction.value if comp and comp.direction else None,
                 ),
             }
-            return entries, ["sprite", "duration", "x_offset", "y_offset"]
+            return entries, ["sprite", "rpg_toggle", "duration", "x_offset", "y_offset", "movement_speed", "direction"]
 
         # Function to save the component
         def save_component(entries) -> bool:
             # Get all user inputs
-            sprite: Image.Image = entries["sprite"].get()
-            duration: float = entries["duration"].get()
-            x_off: int = entries["x_offset"].get()
-            y_off: int = entries["y_offset"].get()
+            sprite: Image.Image | None = entries["sprite"].get()
 
             # Do not save if an input is malformed
-            if sprite is None or duration is None or x_off is None or y_off is None:
+            if sprite is None:
                 return False
 
-            # Create the new action component from user input
-            new_comp: ActionComponent = ActionComponent(
-                sprite=sprite,
-                duration_sec=duration,
-                x_offset=x_off,
-                y_offset=y_off,
-            )
+            if entries["rpg_toggle"].get():
+                # Get user inputs
+                movement_speed: int | None = entries["movement_speed"].get()
+                direction_str: str | None = entries["direction"].get()
+                # Cancel if an input is malformed
+                if movement_speed is None or direction_str is None:
+                    return False
+                direction = Direction(direction_str)
+                # Get duration of animation and move distance
+                duration_frames: float = (9 - movement_speed) * 3
+                frames_per_tile: int = 2 ** (8 - movement_speed)
+                pixel_distance: int = int(48 * duration_frames / frames_per_tile)
+
+                # Get coordinate offsets
+                match direction:
+                    case Direction.LEFT:
+                        x, y = -pixel_distance, 0
+                    case Direction.RIGHT:
+                        x, y = pixel_distance, 0
+                    case Direction.UP:
+                        x, y = 0, pixel_distance
+                    case Direction.DOWN:
+                        x, y = 0, -pixel_distance
+
+                new_comp: ActionComponent = ActionComponent(
+                    sprite=sprite,
+                    duration_sec=duration_frames / 60,
+                    x_offset=x,
+                    y_offset=y,
+                    movement_speed=movement_speed,
+                    direction=direction,
+                )
+            else:
+                # Get user inputs
+                duration: float | None = entries["duration"].get()
+                x_off: int | None = entries["x_offset"].get()
+                y_off: int | None = entries["y_offset"].get()
+                # Cancel if an input is malformed
+                if duration is None or x_off is None or y_off is None:
+                    return False
+                # Create the new action component from user input
+                new_comp: ActionComponent = ActionComponent(
+                    sprite=sprite,
+                    duration_sec=duration,
+                    x_offset=x_off,
+                    y_offset=y_off,
+                )
+
             # Place the component accordingly
             if new:
                 action.components.append(new_comp)

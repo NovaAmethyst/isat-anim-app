@@ -6,12 +6,21 @@ Classes
 Action
 ActionComponent
 Actor
+Direction
 """
 
 import base64
 import io
 from dataclasses import dataclass, field
+from enum import StrEnum
 from PIL import Image
+
+
+class Direction(StrEnum):
+    LEFT = "Left"
+    RIGHT = "Right"
+    UP = "Up"
+    DOWN = "Down"
 
 
 @dataclass
@@ -29,6 +38,10 @@ class ActionComponent:
         the amount of pixels moved horizontally during the action component
     y_offset : int
         the amount of pixels moved vertically during the action component
+    movement_speed : int | None
+        the RPG Maker movement speed associated with the component
+    direction : Direction | None
+        the direction in which the actor is moving
 
     Methods
     -------
@@ -44,6 +57,8 @@ class ActionComponent:
     duration_sec: float
     x_offset: int
     y_offset: int
+    movement_speed: int | None = None
+    direction: Direction | None = None
 
     def to_dict(self) -> dict:
         """
@@ -65,6 +80,8 @@ class ActionComponent:
             "duration_sec": self.duration_sec,
             "x_offset": self.x_offset,
             "y_offset": self.y_offset,
+            "movement_speed": self.movement_speed,
+            "direction": self.direction,
         }
     
     @staticmethod
@@ -83,11 +100,14 @@ class ActionComponent:
             the ActionComponent object corresponding to the given dictionary
         """
         sprite_data: bytes = base64.b64decode(d["sprite"])
+        direction_str: str | None = d.get("direction", None)
         return ActionComponent(
             sprite=Image.open(io.BytesIO(sprite_data)),
             duration_sec=d["duration_sec"],
             x_offset=d["x_offset"],
             y_offset=d["y_offset"],
+            movement_speed=d.get("movement_speed", None),
+            direction=None if direction_str is None else Direction(direction_str),
         )
 
 

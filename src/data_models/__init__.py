@@ -8,6 +8,7 @@ ActionComponent
 Actor
 Camera
 CameraMove
+Direction
 Scene
 SceneActor
 ScheduledAction
