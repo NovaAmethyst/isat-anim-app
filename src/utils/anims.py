@@ -101,7 +101,7 @@ def get_scene_actor_frames(scene_actor: SceneActor, n_frames: int, fps: int) -> 
             break
 
         # Add the frames of the action to the cache if they haven't been yet
-        if sched.action.name not in action_dict:
+        if sched.action.name not in action_dict or sched.action.name == "Idle":
             action_dict[sched.action.name] = get_action_frames(sched.action, fps)
 
         action_data: dict = action_dict[sched.action.name]
