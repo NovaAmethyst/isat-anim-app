@@ -538,9 +538,46 @@ class AnimationEditorApp(tk.Tk):
         if self.curr_actor_idx is None or self.curr_action_idx is None:
             return
 
-        # Remove selected action from actor
+        # Get selected actor
         actor_idx, action_idx = self.curr_actor_idx, self.curr_action_idx
         actor: Actor = self.actors[actor_idx]
+        action: Action = actor.actions[action_idx]
+
+        # Check if action was used by a scene actor in a scene
+        scenes_idx: list[tuple[int, int]] = []
+        for i in range(len(self.scenes)):
+            scene: Scene = self.scenes[i]
+            for j in range(len(scene.actors)):
+                sa: SceneActor = scene.actors[j]
+                if sa.actor == actor:
+                    action_list: list[Action] = [sched.action for sched in sa.scheduled_actions]
+                    if action in action_list:
+                        scenes_idx.append((i, j))
+
+        # Ask for confirmation if a scene actor uses the deleted action
+        if len(scenes_idx) != 0:
+            answer: bool = messagebox.askokcancel(
+                "Confirmation",
+                f"""The action '{action.name}' is used in at least one scene.
+                Deleting it will remove the action from every scene it was used in.
+                Delete anyway?"""
+            )
+            # Cancel if no confirmation
+            if not answer:
+                return
+
+            # Remove impacted scheduled actions from every scene actors
+            for (scene_idx, sa_idx) in scenes_idx:
+                scene: Scene = self.scenes[scene_idx]
+                sa: SceneActor = scene.actors[sa_idx]
+                action_list: list[Action] = [sched.action for sched in sa.scheduled_actions]
+                while action in action_list:
+                    idx: int = action_list.index(action)
+                    action_list.pop(idx)
+                    sa.scheduled_actions.pop(idx)
+                self.unsaved_scene(scene_idx)
+
+        # Remove selected action from actor
         actor.actions.pop(action_idx)
 
         # Update displays
