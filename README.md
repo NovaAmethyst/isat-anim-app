@@ -11,7 +11,7 @@ The application is split into two parts : one to handle the creation of actors, 
 The 'Actors' tab is used to define the actors used in a scene,
 and the actions they can perform.
 
-![Actors tab]("https://github.com/user-attachments/assets/9acd0c25-ce3c-4743-976b-aecdac565fc5")
+![Actors tab](https://github.com/user-attachments/assets/9acd0c25-ce3c-4743-976b-aecdac565fc5)
 
 - Create actors and actions they can perform
 - Create action components to define each action
@@ -24,14 +24,14 @@ The 'Scenes' tab is split into two parts:
 one to handle the camera,
 and one to handle the actors present in the scene.
 
-![Camera tab]("https://github.com/user-attachments/assets/005eebfd-f270-43cd-a976-2c430ac8a6fe")
+![Camera tab](https://github.com/user-attachments/assets/005eebfd-f270-43cd-a976-2c430ac8a6fe)
 
 - Change the camera size and starting position
 - Define the movements of the camera during the scene,
 either by making it follow an actor or by manually giving an offset
 - Choose a background for the scene
 
-![Scene actors tab]("https://github.com/user-attachments/assets/1937136c-8b6e-4668-b8cf-864ca4758b9c")
+![Scene actors tab](https://github.com/user-attachments/assets/1937136c-8b6e-4668-b8cf-864ca4758b9c)
 
 - Choose actors from the 'Actors' tab to add to the scene
 - Schedule either an idle action or one of the actions available to the actor
