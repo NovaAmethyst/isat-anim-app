@@ -159,7 +159,7 @@ class SceneActor:
         SceneActor
             the SceneActor object corresponding to the given dictionary
         """
-        return SceneActor(
+        sa: SceneActor = SceneActor(
             actor=Actor.from_dict(d["actor"]),
             start_x=d["start_x"],
             start_y=d["start_y"],
@@ -168,6 +168,11 @@ class SceneActor:
                 for sched in d.get("scheduled_actions", [])
             ],
         )
+        for sched in sa.scheduled_actions:
+            if sched.action in sa.actor.actions:
+                i: int = sa.actor.actions.index(sched.action)
+                sched.action = sa.actor.actions[i]
+        return sa
 
 
 @dataclass
