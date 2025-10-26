@@ -111,6 +111,8 @@ class SceneActor:
 
     Methods
     -------
+    replace_actor(new_actor) -> None:
+        Replaces the current actor with an identical actor, and handles all scheduled actions switches.
     to_dict():
         Creates a dictionary representing the SceneActor object.
 
@@ -123,6 +125,28 @@ class SceneActor:
     start_x: int
     start_y: int
     scheduled_actions: list[ScheduledAction] = field(default_factory=list)
+
+    def replace_actor(self, new_actor: Actor) -> None:
+        """
+        Replaces the current actor with an identical actor, and handles all scheduled actions switches.
+
+        Parameters
+        ----------
+        new_actor : Actor
+            the actor used as a replacement
+
+        Returns
+        -------
+        None
+        """
+        if new_actor != self.actor:
+            return
+        self.actor = new_actor
+
+        for sched in self.scheduled_actions:
+            if sched.action in self.actor.actions:
+                i: int = self.actor.actions.index(sched.action)
+                sched.action = self.actor.actions[i]
 
     def to_dict(self) -> dict:
         """
@@ -168,10 +192,7 @@ class SceneActor:
                 for sched in d.get("scheduled_actions", [])
             ],
         )
-        for sched in sa.scheduled_actions:
-            if sched.action in sa.actor.actions:
-                i: int = sa.actor.actions.index(sched.action)
-                sched.action = sa.actor.actions[i]
+        sa.replace_actor(sa.actor)
         return sa
 
 
@@ -417,6 +438,14 @@ class Scene:
             ],
             camera=Camera.from_dict(d.get("camera", {})),
         )
+
+        seen_actors: list[Actor] = []
+        for i in range(len(scene.actors)):
+            actor: Actor = scene.actors[i].actor
+            if actor in seen_actors:
+                continue
+            for j in range(i + 1, len(scene.actors)):
+                scene.actors[j].replace_actor(actor)
 
         # Replace camera moves linked to scene actors with instance refs instead of copies
         actors_str = [str(actor.to_dict()) for actor in scene.actors]

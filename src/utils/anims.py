@@ -255,6 +255,11 @@ def paste_sprite_to_background(
         the sprite to paste onto the background
     pos : tuple[int, int]
         the index to paste the image on (upper left corner)
+
+    Returns
+    -------
+    Image.Image
+        the background image with the sprite included
     """
     background = background.convert("RGBA")
     sprite = sprite.convert("RGBA")
