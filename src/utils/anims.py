@@ -13,6 +13,8 @@ get_scene_actor_frames(SceneActor, int, int) -> dict:
     Creates a dict of lists for sprites and x and y coordinates for a given scene actor.
 make_video_from_frames(list[npt.NDArray[np.int64]], int, str) -> None:
     Creates and saves the given frames as a mp4 video.
+paste_sprite_to_background(Image.Image, Image.Image, tuple[int, int]) -> Image.Image:
+    Pastes a sprite image onto a background while handling transparency accordingly.
 """
 
 import numpy as np
@@ -237,6 +239,44 @@ def get_camera_pos(camera: Camera, actors_frame_info: dict, n_frames: int, fps: 
     return {"x": cam_x, "y": cam_y}
 
 
+def paste_sprite_to_background(
+    background: Image.Image,
+    sprite: Image.Image,
+    pos: tuple[int, int],
+) -> Image.Image:
+    """
+    Pastes a sprite image onto a background while handling transparency accordingly.
+
+    Parameters
+    ----------
+    background : Image.Image
+        the background to paste the sprite on
+    sprite : Image.Image
+        the sprite to paste onto the background
+    pos : tuple[int, int]
+        the index to paste the image on (upper left corner)
+
+    Returns
+    -------
+    Image.Image
+        the background image with the sprite included
+    """
+    background = background.convert("RGBA")
+    sprite = sprite.convert("RGBA")
+
+    # Create a mask for the sprite
+    r, g, b, a = sprite.split()
+    a_binary = a.point(lambda p: 255 if p > 0 else 0)
+    mask = Image.merge("RGBA", (r, g, b, a_binary))
+
+    # Create a transparent layer for the sprite
+    layer = Image.new("RGBA", background.size)
+    layer.paste(sprite, pos, mask)
+
+    # Add sprite layer to background
+    return Image.alpha_composite(background, layer)
+
+
 def compose_frames(
     background: Image.Image,
     actors_frame_info: dict,
@@ -275,7 +315,7 @@ def compose_frames(
     cam_w, cam_h = camera.width, camera.height
 
     for i in range(n_frames):
-        frame = background.copy()
+        frame = background.copy().convert("RGBA")
         # Paste every visible actor sprite at the correct spot
         for sa in reversed(actors):
             actor_frame_info = actors_frame_info[str(sa)]
@@ -283,13 +323,14 @@ def compose_frames(
             # Skip actor if sprite isn't visible
             if sprite is None:
                 continue
+            sprite = sprite.convert("RGBA")
 
             # find coords of upper left instead of center of sprite for paste func
             sw, sh = sprite.size
             x = int(actor_frame_info["x"][i] - sw / 2)
-            y = int(actor_frame_info["y"][i])# - sh / 2)
+            y = int(actor_frame_info["y"][i] + sh / 2)
             # paste using image index instead of x y coords
-            frame.paste(sprite, (x0 + x, y0 - y), sprite)
+            frame = paste_sprite_to_background(frame, sprite, (x0 + x, y0 - y))
 
         # Move camera x pos to not go beyond the background boundaries
         if cam_w >= bg_w:

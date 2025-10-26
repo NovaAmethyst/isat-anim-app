@@ -1935,6 +1935,7 @@ class AnimationEditorApp(tk.Tk):
         if sa.actor in self.actors:
             # Switch to actors tab and select actor
             actor_idx = self.actors.index(sa.actor)
+            self.actors[actor_idx] = sa.actor
             self.tab_notebook.select(0)
             self.tab_notebook.update()
             self.tab_notebook.update_idletasks()

@@ -2,6 +2,8 @@
 
 An app made in Python to create custom animations mimicking [insertdisc5](https://insertdisc5.com)'s game [In Stars and Time](https://instarsandtime.come).
 
+<p align="center"> <img src="https://img.shields.io/github/downloads/NovaAmethyst/isat-anim-app/total"> <img src="https://img.shields.io/github/last-commit/NovaAmethyst/isat-anim-app"> <img src="https://img.shields.io/github/v/release/NovaAmethyst/isat-anim-app"> </p>
+
 ## Features
 
 The application is split into two parts : one to handle the creation of actors, and one to handle the creation of scenes.
